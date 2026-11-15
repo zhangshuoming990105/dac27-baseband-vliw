@@ -2,7 +2,6 @@
 \IEEEoverridecommandlockouts
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{textcomp}
 \usepackage{xcolor}
@@ -10,7 +9,6 @@
 \usepackage{multirow}
 \usepackage[hidelinks,pdfauthor={},pdftitle={}]{hyperref}
 \usepackage{makecell}
-\usepackage{diagbox}
 \usepackage{booktabs}
 \usepackage{threeparttable}
 \renewcommand{\figureautorefname}{Fig.}
@@ -22,6 +20,7 @@
 % \thanks{funding agency etc.}
 }
 
+\author{\IEEEauthorblockN{\textit{Anonymous Submission}}}
 % \author{
 %   Rui Hong\textsuperscript{1}, Man Dai\textsuperscript{1}, Lin Liu\textsuperscript{1}, 
 %   Pan Liu\textsuperscript{2}, Yimin Du\textsuperscript{1}, Shuoming Zhang\textsuperscript{1},
@@ -35,76 +34,79 @@
 \maketitle
 
 \begin{abstract}
-Rapidly evolving wireless communication standards demand baseband processors that combine software adaptability with deterministic, silicon-efficient execution. Fixed-function ASICs struggle to accommodate non-backward-compatible protocol revisions, whereas commercial general-purpose DSPs incur substantial instruction and microarchitectural overhead. This paper presents a streamlined 4-issue domain-specific VLIW co-processor with custom RV32-based ISA extensions, developed through compiler--chip co-design for wireless baseband signal processing. At the ISA and microarchitecture levels, a 3-bit bundle/slot prefix eliminates NOP-padding storage in variable-length bundles, a 4-bit dual-destination (\textit{rd2}) field pairs with compact 16-entry scalar and 640-bit split-guard SIMD register files, and all-slot Replicated Common Functional Units (RCFUs) with single-slot memory access relax scheduling contention at minimal area cost. At the toolchain level, an LLVM-based compiler employs a coupled data-flow and heterogeneous-resource upper-bound model to gate two-stage List--ILP scheduling. Implemented in TSMC 22\,nm ULL technology at 800\,MHz, the core occupies 0.98\,mm\textsuperscript{2}---52.9\% smaller than the 16\,nm CEVA XC12 (2.08\,mm\textsuperscript{2}) and comparable to the compact 16\,nm Tensilica B20 (0.966\,mm\textsuperscript{2}) despite an older node---while reducing dynamic power (573.4\,mW) by 45.1\% and 27.1\%, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, the design satisfies all symbol- and link-level real-time budgets under peak 2T2R@80\,MHz (800\,Mbps) workloads.
+Rapidly evolving wireless standards demand digital baseband processors that unite software agility with deterministic, silicon-efficient execution. Hardwired ASICs cannot absorb non-backward-compatible protocol revisions without costly re-spins, whereas commercial general-purpose DSP IPs carry substantial instruction-set and microarchitectural overhead. This paper presents a streamlined 4-issue domain-specific VLIW co-processor with custom RV32-based extensions, developed via compiler--chip co-design for wireless baseband signal processing. At the ISA and microarchitecture levels, a 3-bit bundle/slot prefix eliminates NOP padding in variable-length bundles, a 4-bit dual-destination (\texttt{rd2}) specifier pairs with compact 16-entry scalar and 640-bit split-guard SIMD register files, and all-slot Replicated Common Functional Units (RCFUs) with single-slot load/store access alleviate scheduling contention at minimal gate cost. At the toolchain level, an LLVM-based compiler employs a coupled data-flow and heterogeneous-slot upper-bound model to gate hybrid List--ILP instruction scheduling. Implemented in TSMC 22\,nm ULL technology at 800\,MHz, the core occupies 0.98\,mm\textsuperscript{2}---52.9\% smaller than the 16\,nm CEVA XC12 (2.08\,mm\textsuperscript{2}) and matching the compact 16\,nm Tensilica B20 (0.966\,mm\textsuperscript{2}) within 1.4\% despite a mature node---while reducing dynamic power (573.4\,mW) by 45.1\% and 27.1\%, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, the design deterministically meets all symbol- and link-level real-time budgets under peak 2T2R@80\,MHz (800\,Mbps) workloads.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Wireless baseband processor, domain-specific VLIW, custom RISC-V ISA, hardware--compiler co-design, SparkLink SLB.
+Wireless baseband processor, domain-specific VLIW, custom RISC-V ISA, compiler--chip co-design, SparkLink SLB.
 \end{IEEEkeywords}
 
 \section{Introduction}
-Modern wireless communication systems span diverse and rapidly iterating protocols across short-range broadband links, cellular networks, and satellite connectivity, placing stringent demands on both silicon efficiency and programmability in digital baseband design. While Application-Specific Integrated Circuits (ASICs) deliver high energy efficiency for standardized, fixed kernels such as channel decoding~\cite{shao2019survey}, their rigid datapaths shorten chip lifecycles and incur steep re-spin costs whenever physical-layer (PHY) frame structures, synchronization schemes, or modulation modes evolve.
+Modern wireless communication systems span diverse, rapidly iterating protocols across short-range broadband links, cellular networks, and satellite connectivity, placing simultaneous demands on silicon efficiency, hard-real-time determinism, and software programmability. While Application-Specific Integrated Circuits (ASICs) deliver exceptional energy efficiency for standardized, stationary kernels such as channel decoding~\cite{shao2019survey}, their fixed datapaths shorten silicon lifecycles and incur steep re-spin costs whenever physical-layer (PHY) frame formats, synchronization sequences, or multi-antenna modes evolve.
 
-Software-Defined Radio (SDR) addresses protocol agility by mapping baseband workloads onto programmable platforms~\cite{sinha2016software, akeela2018software}. Prior efforts have explored specialized baseband DSPs~\cite{anjum2011state, liu2009bridging, moudgill2008sandblaster, highefficient, ziyuan2013100} as well as multi-core SIMD and coarse-grained reconfigurable array (CGRA) dataflow architectures~\cite{lin2007soda, woh2008soda, bougard2008coarse, wu2023alleviating}. Nevertheless, commercial off-the-shelf processor IPs are typically engineered to maximize cross-market generality across wired communications, audio/video codecs, and machine learning, introducing substantial architectural redundancy when deployed in wireless PHY pipelines. Prior studies show that commercial DSP ISAs often accumulate hundreds of general-purpose instructions that remain largely unused in radio-frequency and baseband kernels~\cite{amor2021risc}, while general-purpose embedded cores similarly carry excessive control overhead for tight signal-processing loops~\cite{amor2019software}. Conversely, spatial many-core and CGRA-style accelerators frequently suffer from interconnect routing overhead and low resource utilization on control-coupled baseband flows, making it difficult to optimize silicon area, power, and deterministic latency simultaneously.
+Software-Defined Radio (SDR) addresses protocol agility by mapping baseband pipelines onto programmable engines~\cite{sinha2016software, akeela2018software}, inspiring specialized baseband DSPs~\cite{anjum2011state, liu2009bridging, moudgill2008sandblaster, highefficient, ziyuan2013100} alongside multi-core SIMD and coarse-grained reconfigurable array (CGRA) architectures~\cite{lin2007soda, woh2008soda, bougard2008coarse, wu2023alleviating}. In practice, however, commercial off-the-shelf DSP IPs are engineered for cross-market generality spanning wired access, audio/video codecs, and machine learning, introducing substantial architectural redundancy in wireless PHY deployments. Prior analyses show that commercial DSP ISAs accumulate hundreds of general-purpose instructions that remain largely unused in radio-frequency and baseband workloads~\cite{amor2021risc}, while general-purpose embedded cores incur excessive control overhead in tight signal-processing loops~\cite{amor2019software}. Conversely, spatial many-core and CGRA accelerators often suffer from interconnect routing overhead and low compute utilization on control-coupled baseband flows, making it difficult to optimize area, dynamic power, and worst-case latency jointly.
 
-The open, royalty-free RISC-V instruction set provides a clean modular foundation for domain-specific customization~\cite{cui2023risc}. Recent studies have investigated standard RISC-V vector and packed-SIMD extensions for communication kernels~\cite{razilov2022communications, li2023portable}, alongside custom extensions targeting IoT baseband processing~\cite{amor2021risc, melo2016oolong}, near-threshold DSP operations~\cite{gautschi2017near}, hardware security~\cite{palmiero2018design}, bit-level channel coding~\cite{tourres2021extended}, and radio resource management~\cite{andri2020extending, paulin2021rnn}. However, single-issue scalar or standard vector RISC-V cores still struggle to sustain the concurrent control, address generation, memory streaming, and wide complex arithmetic required by wideband multi-antenna standards within sub-10\,$\mu$s symbol budgets.
+The open, modular RISC-V ISA offers a clean foundation for domain-specific customization~\cite{cui2023risc}. Prior studies have evaluated standard RISC-V vector and packed-SIMD extensions on communication kernels~\cite{razilov2022communications, li2023portable}, as well as custom extensions targeting IoT baseband processing~\cite{amor2021risc, melo2016oolong}, near-threshold DSP execution~\cite{gautschi2017near}, hardware security~\cite{palmiero2018design}, bit-level channel coding~\cite{tourres2021extended}, and radio resource management~\cite{andri2020extending, paulin2021rnn}. Yet single-issue scalar or standard vector RISC-V cores struggle to sustain the concurrent loop control, address generation, memory streaming, and wide complex arithmetic demanded by wideband MIMO standards within sub-10\,$\mu$s symbol budgets.
 
-Static Very Long Instruction Word (VLIW) architectures offer an attractive path to bridge this gap: by delegating dependency resolution and parallel issue to the compiler, VLIW cores eliminate power- and area-hungry dynamic out-of-order dispatch logic while exposing deterministic cycle-level execution. Yet applying VLIW effectively to wireless baseband requires overcoming four classic, tightly coupled bottlenecks: (i) instruction-memory bloat from mandatory NOP padding in fixed-width bundles; (ii) register-file port and multi-bank memory overhead across parallel issue slots; (iii) structural slot contention under heterogeneous functional-unit partitioning; and (iv) the compile-time tension between suboptimal greedy list scheduling and computationally expensive integer linear programming (ILP).
+Static Very Long Instruction Word (VLIW) architectures provide an appealing alternative: delegating dependency resolution and parallel issue to the compiler eliminates area- and power-hungry dynamic dispatch hardware while guaranteeing deterministic cycle-level timing. Realizing this potential in wireless baseband, however, requires resolving four tightly coupled VLIW bottlenecks: (i) instruction-memory bloat caused by mandatory NOP padding in fixed-width bundles; (ii) multi-port register-file and multi-bank memory area growth across parallel slots; (iii) structural slot contention under heterogeneous functional-unit partitioning; and (iv) the compile-time tension between myopic list scheduling and expensive integer linear programming (ILP).
 
-In this paper, we address these challenges holistically through \textit{compiler--chip co-design}, co-optimizing a custom RV32-based VLIW ISA, a streamlined 4-way baseband co-processor, and a bound-guided LLVM scheduling backend. The main contributions of this work are summarized as follows:
+In this paper, we resolve these tensions holistically through \textit{compiler--chip co-design}, jointly tailoring a custom RV32-based VLIW ISA, a streamlined 4-issue baseband co-processor, and a bound-guided LLVM backend. Our main contributions are three-fold:
 
 \begin{enumerate}
-    \item \textbf{Workload-Driven VLIW ISA Customization:} By distilling common PHY computation paradigms across wireless standards into 15 fundamental operator classes, we design a custom 32-bit RV32-based VLIW encoding featuring a 3-bit variable-length bundle/slot prefix, a 4-bit dual-destination (\textit{rd2}) field, extended branch/jump ranges, and domain-specific 640-bit guarded SIMD instructions.
-    \item \textbf{Streamlined Co-Processor and Bound-Guided Compiler Co-Design:} We architect a 10-stage, 4-slot heterogeneous VLIW co-processor combining 16-entry scalar/vector register files, non-stalling multi-cycle functional units (MCFUs), single-slot load/store serialization, and all-slot Replicated Common Functional Units (RCFUs), paired with an LLVM compiler that uses a coupled data-flow and slot-capacity upper-bound model to gate hybrid List--ILP instruction scheduling.
-    \item \textbf{Sign-Off Post-Layout Evaluation and SLB 2.0 SoC Tapeout:} We complete full sign-off backend implementation in TSMC 22\,nm ULL at 800\,MHz and tape out a three-core SparkLink~\cite{gao2023sparklink} SLB 2.0 baseband SoC. Post-layout results show a 0.98\,mm\textsuperscript{2} core standard-cell area---52.9\% smaller than the 16\,nm CEVA XC12 and comparable to the 16\,nm Tensilica B20 despite a mature process node---alongside 45.1\% and 27.1\% lower dynamic power, while meeting all symbol- and link-level real-time deadlines under peak 2T2R@80\,MHz workloads.
+    \item \textbf{Workload-Driven VLIW ISA:} Distilling cross-standard PHY kernels into 15 core operator classes, we design a 32-bit RV32-based VLIW encoding featuring a 3-bit variable-length bundle/slot prefix, a 4-bit dual-destination (\texttt{rd2}) specifier, expanded branch/jump offsets, and 640-bit split-guard SIMD instructions.
+    \item \textbf{Streamlined Co-Processor and Bound-Guided Compiler Co-Design:} We architect a 10-stage, 4-slot heterogeneous VLIW co-processor combining 16-entry scalar/vector register files, non-stalling multi-cycle functional units (MCFUs), single-slot load/store serialization, and all-slot Replicated Common Functional Units (RCFUs), co-designed with an LLVM backend that uses coupled data-flow and slot-capacity bounds to gate hybrid List--ILP scheduling.
+    \item \textbf{Sign-Off Post-Layout Evaluation and SLB 2.0 SoC Tapeout:} We complete sign-off implementation in TSMC 22\,nm ULL at 800\,MHz and tape out a three-core SparkLink~\cite{gao2023sparklink} SLB 2.0 baseband SoC. Post-layout results demonstrate a 0.98\,mm\textsuperscript{2} core area---52.9\% smaller than the 16\,nm CEVA XC12 and matching the 16\,nm Tensilica B20 within 1.4\%---with 45.1\% and 27.1\% lower dynamic power, satisfying all real-time deadlines at peak 2T2R@80\,MHz throughput.
 \end{enumerate}
 
 \section{Background \& Motivation}
 
 \subsection{Common Computational Paradigms in Wireless Signal Processing}
 
-Despite rapid protocol diversification at the frame and medium-access layers, modern wireless PHY pipelines share highly stable underlying mathematical structures. Transmitter chains---spanning scrambling, modulation, resource mapping, and OFDM/waveform generation---and receiver chains---spanning synchronization, channel estimation, MIMO equalization, and soft demodulation---can be systematically decomposed into a compact set of reusable elementary operators.
+Despite rapid diversification at the frame and medium-access layers, modern wireless PHY pipelines share stable underlying mathematical structures. Both transmitter chains (scrambling, constellation mapping, resource allocation, and OFDM waveform generation) and receiver chains (synchronization, channel estimation, MIMO equalization, and soft demodulation) decompose consistently into a compact set of reusable elementary operators.
 
-Specifically, timing synchronization, cyclic-prefix autocorrelation, and matched FIR filtering all reduce to shift-accumulate sequence correlations; pilot-based channel estimation and MIMO equalization build upon complex vector scaling, small-matrix inversion/adjoint, and matrix--vector multiplication; and FFT/IFFT spectral transforms rely on radix butterfly kernels coupled with phase rotations. Through a cross-standard survey of mainstream wireless PHY specifications, we distill 15 core operator categories and their representative PHY modules in Table~\ref{tab:operator}.
+Specifically, timing detection, cyclic-prefix autocorrelation, and matched FIR filtering all map to shift-accumulate sequence correlations; pilot-aided channel estimation and MIMO equalization build upon complex vector scaling, small-matrix inversion/adjoint, and matrix--vector products; and FFT/IFFT transforms rely on radix butterfly stages paired with phase rotations. Surveying mainstream wireless PHY specifications, we distill 15 fundamental operator classes and their representative PHY modules in \autoref{tab:operator}.
 
 \begin{table}[t]
 \centering
-\caption{Common Operators of Wireless Communication Signal Processing}
+\caption{Common Operators in Wireless Physical-Layer Signal Processing}
 \label{tab:operator}
-\begin{tabular}{|>{\raggedright\arraybackslash}p{0.35\linewidth}|>{\raggedright\arraybackslash}p{0.55\linewidth}|}
-\hline
-\multicolumn{1}{|>{\centering\arraybackslash}p{0.35\linewidth}|}{\textbf{Operators}} & 
-\multicolumn{1}{>{\centering\arraybackslash}p{0.55\linewidth}|}{\textbf{Typical Physical-layer Modules}} \\ \hline
-Maximum & Finding peak values \\ \hline
-Sequence Correlation/Filtering/Convolution & FIR filtering and Synchronization \\ \hline
-Sequence Multiplication & Frequency Compensation and Channel Estimation \\ \hline
-Divide & Channel Equalization \\ \hline
-Euler Formula & Sequence Generation and Trigonometric Function \\ \hline
-Data Extraction & Resource Mapping and Resource De-mapping \\ \hline
-Baseband Modulation & BPSK, QPSK, 16QAM, 64QAM, 256QAM, 1024QAM \\ \hline
-Butterfly Operation & FFT, IFFT, DFT, IDFT \\ \hline
-Sort & Channel Parameter Analysis \\ \hline
-Remainder & Sequence Generation and Parameter Calculation \\ \hline
-Exponentiation & Channel Measurement \\ \hline
-Logarithmic Operation & Channel Measurement \\ \hline
-Matrix Multiplication & Channel Equalization \\ \hline
-Adjoint Matrix & Channel Equalization \\ \hline
-Saturation & Accuracy Preservation during the calculation process \\ \hline
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.39\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\toprule
+\textbf{Operator Class} & \textbf{Typical Physical-Layer Modules} \\
+\midrule
+Maximum & Peak detection and timing search \\
+Sequence Correlation\slash Filtering\slash Convolution & FIR filtering and synchronization \\
+Sequence Multiplication & Frequency compensation and channel estimation \\
+Divide & Channel equalization \\
+Euler Formula & Sequence generation and trigonometric functions \\
+Data Extraction & Resource mapping and resource de-mapping \\
+Baseband Modulation & BPSK, QPSK, 16QAM, 64QAM, 256QAM, 1024QAM \\
+Butterfly Operation & FFT, IFFT, DFT, IDFT \\
+Sort & Channel parameter analysis \\
+Remainder & Sequence generation and parameter calculation \\
+Exponentiation & Channel measurement \\
+Logarithmic Operation & Channel measurement \\
+Matrix Multiplication & Channel equalization \\
+Adjoint Matrix & Channel equalization \\
+Saturation & Precision preservation across iterative stages \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-Examining Table~\ref{tab:operator} reveals three structural properties that directly guide our compiler--chip co-design: (1) \textit{multi-output and overflow-sensitive fixed-point precision}---iterative correlation, butterfly, and equalization chains require wide intermediate accumulation with saturation/guard protection as well as paired outputs (e.g., high/low wide products or quotient/remainder pairs); (2) \textit{phase-disjoint heavy operators alongside ubiquitous scalar glue}---compute-heavy kernels such as constellation mapping, CORDIC rotation, and vector division rarely execute in the same inner loop, whereas scalar loop control, pointer arithmetic, and bit shifts appear continuously across every module; and (3) \textit{strict deterministic timing}---symbol-by-symbol streaming exhibits predictable static dataflow, favoring compile-time VLIW scheduling over scratchpad memory rather than speculative hardware.
+Inspecting \autoref{tab:operator} exposes three structural properties that directly shape our compiler--chip co-design: (1) \textit{multi-output and overflow-sensitive fixed-point arithmetic}---iterative correlation, butterfly, and equalization chains require wide intermediate headroom with saturation/guard protection alongside paired results (e.g., wide high/low products or quotient/remainder pairs); (2) \textit{phase-disjoint heavy primitives paired with pervasive scalar glue}---compute-heavy operators such as QAM mapping, CORDIC rotation, and vector division rarely co-occur within the same inner loop, whereas scalar loop bookkeeping, pointer updates, and bit shifts execute continuously in every kernel; and (3) \textit{deterministic streaming dataflow}---symbol-synchronous pipelines exhibit predictable memory access and control patterns, favoring static compile-time VLIW scheduling over scratchpad memory rather than speculative hardware.
 
 \subsection{SLB 2.0: Protocol Evolution and Real-Time Constraints}
 
-SparkLink SLB (SparkLink Basic)~\cite{gao2023sparklink} is an emerging short-range wideband wireless standard architected for ultra-low latency, high reliability, and dense multi-node connectivity beyond conventional Wi-Fi. While SLB PHY kernels still fall within the operator taxonomy of Table~\ref{tab:operator}, processing an equivalent channel bandwidth in SLB imposes markedly tighter real-time pressure than cellular LTE or 5G NR due to three protocol characteristics: (1) compressed OFDM symbol durations (down to 8.928\,$\mu$s), (2) shallower allowable inter-symbol processing pipelines, and (3) finer-grained slot and multi-user scheduling control.
+SparkLink SLB (SparkLink Basic)~\cite{gao2023sparklink} is a short-range wideband wireless standard engineered for ultra-low latency, high reliability, and dense multi-node connectivity beyond conventional Wi-Fi. Although SLB PHY kernels fall within \autoref{tab:operator}, processing an equivalent bandwidth in SLB imposes substantially tighter timing pressure than cellular LTE or 5G NR due to three protocol traits: (1) compressed OFDM symbol durations (down to 8.928\,$\mu$s), (2) shallower permissible inter-symbol pipeline depth, and (3) finer-grained multi-user slot and control scheduling.
 
-Released in March 2025 by the International SparkLink Alliance, SparkLink SLB 2.0 introduces substantial PHY and L1 enhancements: (1) multi-domain synchronization and 3D-FISA anti-interference processing, (2) more flexible frame structures and parameterizable resource configurations for extended coverage, (3) centralized low-power scheduling, and (4) shortened frame turnarounds demanding end-to-end ACK feedback within 35.7\,$\mu$s. Crucially, these upgrades render SLB 2.0 \textit{non-backward-compatible} with SLB 1.0. Hardwired PHY ASICs cannot absorb such cross-generation incompatible changes without silicon re-spins, while commercial DSP IPs---encumbered by hundreds of general-purpose instructions outside Table~\ref{tab:operator}---incur prohibitive area and dynamic power penalties when scaled to multi-core wideband SoCs. This tension motivates a streamlined, compiler-co-designed VLIW architecture dedicated to wireless baseband processing.
+Released in March 2025 by the International SparkLink Alliance, SparkLink SLB 2.0 introduces major PHY and L1 upgrades: (1) multi-domain synchronization and 3D-FISA anti-interference processing, (2) parameterizable frame types and resource structures for extended coverage, (3) centralized low-power scheduling, and (4) shortened turnaround intervals requiring end-to-end ACK feedback within 35.7\,$\mu$s. Crucially, these enhancements render SLB 2.0 \textit{non-backward-compatible} with SLB 1.0. Fixed-function PHY ASICs cannot absorb such incompatible cross-generation revisions without silicon re-spins, whereas commercial DSP IPs---burdened by hundreds of general-purpose instructions outside \autoref{tab:operator}---incur prohibitive area and dynamic power overhead when scaled to multi-core wideband SoCs. This motivates our streamlined, compiler-co-designed VLIW architecture.
 
 \section{VLIW Architecture and Compiler Co-Design}
 
 \subsection{ISA Design Methodology}
-We build our instruction set upon the fixed 32-bit RV32 encoding skeleton, preserving consistent register-specifier positions to keep front-end decoding compact. To support variable-length VLIW execution and multi-output baseband arithmetic without expanding instruction width, we introduce two foundational encoding customizations, illustrated in \autoref{fig:key-ISA-modifications}.
+We anchor our ISA on the fixed 32-bit RV32 encoding skeleton, preserving standard register-specifier alignments to keep front-end decode logic compact. To support variable-length VLIW bundles and multi-output baseband arithmetic without widening instruction words, we introduce two key encoding customizations (\autoref{fig:key-ISA-modifications}).
 
 \begin{figure}[t]
     \centering
@@ -113,116 +115,97 @@ We build our instruction set upon the fixed 32-bit RV32 encoding skeleton, prese
     \label{fig:key-ISA-modifications}
 \end{figure}
 
-First, as shown in \autoref{fig:key-ISA-modifications}(a), we repurpose the lowest three bits (\texttt{bits[2:0]}) of every 32-bit instruction word as a hardware-friendly VLIW dispatch prefix. Specifically, the least significant bit (\texttt{bit[0]}, denoted \texttt{e}) serves as the \textit{end-of-group} flag: \texttt{e = 0} concatenates the current instruction with the subsequent word into a variable-length VLIW bundle (1 to 4 instructions), whereas \texttt{e = 1} terminates the bundle. Eliminating mandatory NOP words from partially filled bundles substantially shrinks binary footprint, reduces instruction-fetch bandwidth, and conserves on-chip instruction memory. Adjacent \texttt{bits[2:1]} explicitly encode the target issue slot index across the 4 VLIW slots. Together, \texttt{bits[2:0]} allow the fetch/decode front-end to delimit bundle boundaries and route instructions to their target slots by inspecting only three bits per word, incurring negligible gate and timing overhead.
+First, as shown in \autoref{fig:key-ISA-modifications}(a), the lowest three bits (\texttt{bits[2:0]}) of each 32-bit word form a lightweight VLIW dispatch prefix. Bit~0 (\texttt{e}) acts as the \textit{end-of-group} marker: \texttt{e = 0} chains the current word with the following instruction into a variable-length bundle (1 to 4 instructions), while \texttt{e = 1} terminates the bundle. Stripping mandatory NOP words from partially occupied bundles shrinks static code footprint, lowers instruction-fetch bandwidth, and conserves on-chip program memory. Adjacent \texttt{bits[2:1]} explicitly index the target slot among the four VLIW issue slots, enabling the front-end to delimit bundles and steer instructions by inspecting only three bits per word at negligible gate and timing cost.
 
-Second, as shown in \autoref{fig:key-ISA-modifications}(b), to support full-precision dual-result operators in Table~\ref{tab:operator}---including wide multiply-accumulate, complex dot products, small-matrix multiplication, and combined division/remainder---we extend a subset of R-type instructions with a second destination specifier. The upper four bits (\texttt{bits[31:28]}) of the standard \texttt{funct7} field are repurposed as \texttt{rd2}, while \texttt{bits[27:25]} remain reserved. Crucially, this 4-bit \texttt{rd2} width matches our streamlined 16-entry architectural register files ($2^4 = 16$), allowing a single 32-bit instruction to commit two full-width register results without splitting operations into instruction pairs.
+Second, as shown in \autoref{fig:key-ISA-modifications}(b), to support full-precision dual-result primitives in \autoref{tab:operator} (such as wide multiply-accumulate, complex dot products, small-matrix products, and combined division/remainder), selected R-type instructions repurpose \texttt{bits[31:28]} of \texttt{funct7} as a 4-bit second destination specifier (\texttt{rd2}), leaving \texttt{bits[27:25]} reserved. Matching our streamlined 16-entry register files ($2^4 = 16$), \texttt{rd2} commits two full-width results from a single 32-bit instruction without splitting operations into instruction pairs.
 
-In addition, because every instruction word is strictly 32-bit aligned (removing 16-bit halfword targets), we reclaim the redundant alignment bit in B-type branch and J-type jump encodings to extend both PC-relative offset ranges by 1 bit, accommodating large multi-mode baseband firmware images without trampolines. Domain-specific opcodes are systematically partitioned by destination register-file class in \texttt{opcode[6:3]} and by source operand class in \texttt{funct3}, enabling early-stage decode of register-file targets and simplifying hazard and forwarding logic.
+Furthermore, because 32-bit fixed-width instructions guarantee 4-byte target alignment, we reclaim the redundant halfword alignment bit in B-type branch and J-type jump formats to expand both PC-relative offset ranges by 1 bit, supporting large multi-mode baseband firmware images without linker trampolines. Domain-specific opcodes are organized by destination register-file class in \texttt{opcode[6:3]} and source operand class in \texttt{funct3}, enabling early register-class decode and streamlined forwarding logic.
 
-Notably, standard RV32 reserves \texttt{bits[1:0] = 11} for 32-bit instructions while allocating prefixes \texttt{00}, \texttt{01}, and \texttt{10} to the optional 16-bit Compressed (C) extension~\cite{waterman2019risc}. Because variable-length VLIW prefix packing already eliminates NOP code bloat, we omit the C extension to avoid mixed 16/32-bit alignment multiplexers in the 4-wide fetch path and reclaim all four quadrants, quadrupling the usable 32-bit encoding space. Likewise, rather than adopting the general-purpose RISC-V V or P extensions---which still lack native instructions for QAM modulation/demodulation, butterfly rotations, and specialized matrix primitives while imposing hardware overhead for dynamic vector-length configuration and general-purpose vector control---we co-design a fixed-width SIMD instruction set tailored directly to Table~\ref{tab:operator}. Since wireless baseband firmware runs in a closed embedded environment, trading off stock binary compatibility for a streamlined hardware--compiler contract yields superior area and power efficiency, supported by the custom LLVM toolchain detailed in Section~\ref{subsec:compiler}.
+Standard RV32 fixes \texttt{bits[1:0] = 11} for 32-bit instructions and reserves quadrants \texttt{00}, \texttt{01}, and \texttt{10} for the 16-bit Compressed (C) extension~\cite{waterman2019risc}. Because variable-length bundle prefixes already eliminate NOP bloat, omitting the C extension avoids mixed 16/32-bit alignment muxes in the 4-wide fetch path while quadrupling usable 32-bit opcode space. Similarly, rather than adopting general-purpose RISC-V V or P extensions---which still lack native QAM modulation/demodulation, butterfly rotation, and specialized matrix instructions while adding dynamic vector-length control hardware---we co-design a fixed-width SIMD ISA matched directly to \autoref{tab:operator}. In closed embedded baseband systems, trading off stock binary compatibility for a streamlined hardware--compiler contract yields substantial silicon and power savings, backed by the LLVM toolchain in Section~\ref{subsec:compiler}.
 
 \subsection{Co-Processor Design}
-Built upon this custom ISA, we design a 4-issue domain-specific VLIW co-processor (\autoref{fig:arch}). Up to four 32-bit instructions are fetched and unpacked per cycle into a 128-bit internal dispatch frame feeding four parallel slots. The datapath employs a balanced 10-stage pipeline to sustain an 800\,MHz clock frequency in 22\,nm ULL silicon. High-complexity baseband primitives with multi-cycle execution latencies---such as vector CORDIC and division---are implemented as non-blocking multi-cycle functional units (MCFUs) that execute in parallel without stalling the main 10-stage pipeline.
+Built upon this ISA, our 4-issue domain-specific VLIW co-processor (\autoref{fig:arch}) fetches and unpacks up to four 32-bit instructions per cycle into a 128-bit internal dispatch frame across four parallel slots. A balanced 10-stage pipeline sustains an 800\,MHz clock in 22\,nm ULL silicon, while long-latency baseband primitives---such as vector CORDIC and division---execute in non-stalling multi-cycle functional units (MCFUs) without blocking main pipeline progression.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=1\linewidth]{Figs/Architecture Block Diagram.jpg}
+    \includegraphics[width=0.98\linewidth]{Figs/fig2_arch.pdf}
     \caption{Core Architecture Block Diagram}
     \label{fig:arch}
 \end{figure}
 
-To prevent multi-slot register-file area and routing explosion, the architectural register state is streamlined to 16 32-bit scalar general-purpose registers, 16 640-bit vector registers, and 4 32-bit vector mask registers. Each 640-bit vector register packs sixteen 40-bit SIMD elements (\autoref{fig:simd}), partitioned into a 16-bit \texttt{high} lane (\texttt{bits[31:16]}), a 16-bit \texttt{low} lane (\texttt{bits[15:0]}), and two dedicated 4-bit guard segments (\texttt{guard.h} in \texttt{bits[39:36]} and \texttt{guard.l} in \texttt{bits[35:32]}). These split guard bits preserve dynamic range and prevent intermediate overflow across iterative complex $(I, Q)$ filtering, FFT stages, and MIMO channel equalization without widening memory operands beyond 32 bits per complex sample.
+To contain multi-slot register-file area and crossbar routing, architectural state is streamlined to sixteen 32-bit scalar general-purpose registers, sixteen 640-bit vector registers, and four 32-bit vector mask registers. Each 640-bit vector register holds sixteen 40-bit SIMD elements (\autoref{fig:simd}), comprising a 16-bit \texttt{high} lane (\texttt{bits[31:16]}), a 16-bit \texttt{low} lane (\texttt{bits[15:0]}), and two dedicated 4-bit guard fields (\texttt{guard.h} in \texttt{bits[39:36]} and \texttt{guard.l} in \texttt{bits[35:32]}). These split guard bits preserve intermediate dynamic range and prevent overflow across iterative complex $(I, Q)$ filtering, FFT stages, and MIMO equalization while keeping memory operands at 32 bits per complex sample.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=1\linewidth]{Figs/Basic SIMD Vector Element.jpg}
+    \includegraphics[width=0.98\linewidth]{Figs/fig3_simd.pdf}
     \caption{Basic SIMD Vector Element Structure}
     \label{fig:simd}
 \end{figure}
 
-Functional units are asymmetrically partitioned across the four VLIW slots according to operator concurrency profiles and silicon cost, as listed in \autoref{tab:fu}. A central co-design feature is the \textit{Replicated Common Functional Unit (RCFU)}, instantiated across all four slots to execute high-frequency scalar arithmetic, bitwise logic, and shift operations. Because these elementary 32-bit units incur minimal gate area, four-way replication eliminates single-slot structural bottlenecks for ubiquitous loop-indexing and scalar glue instructions, markedly increasing compiler scheduling freedom.
+Functional units are partitioned asymmetrically across the four slots according to operator concurrency and gate cost (\autoref{tab:fu}). A cornerstone co-design element is the \textit{Replicated Common Functional Unit (RCFU)}, instantiated in all four slots to execute ubiquitous 32-bit scalar arithmetic, logic, and shift operations. Because these elementary units occupy negligible area, four-way replication removes single-slot bottlenecks on loop indexing and pointer/bit manipulation, substantially expanding compiler scheduling freedom.
 
-Meanwhile, heavier scalar and vector units are assigned to dedicated slots whose operators exhibit low simultaneous demand in baseband inner loops: Slot~0 handles control flow (\texttt{BJ}, \texttt{SYS} from RV32I) and primary vector arithmetic/modulation/rotation (\texttt{VALU}, \texttt{VMOD}, \texttt{VROT}); Slot~1 integrates full RV32I scalar ALU (\texttt{SALU}) and vector permutation/search/addressing helpers (\texttt{VSCH}, \texttt{VEI}, \texttt{VBCT}, \texttt{VSHF}, \texttt{VAGU}); Slot~2 consolidates all scalar and vector load/store accesses (\texttt{SLSU}, \texttt{VLSU}) alongside mask/compare units (\texttt{VMSK}, \texttt{VCOM}); and Slot~3 houses compute-intensive RV32M and complex baseband engines (\texttt{SMUL}, \texttt{SDIV}, \texttt{VDIV}, \texttt{VCOR}, \texttt{VMUL}, \texttt{VDEM}). (Note that Slots~2 and~3 are visually transposed in \autoref{fig:arch} to illustrate the direct datapath between Slot~2 and Data Memory.) Restricting all memory operations to Slot~2 avoids multi-port data-memory arbitration and crossbar wiring, substantially reducing overall core area while keeping Slot~0 control, Slot~1 address generation, Slot~2 streaming memory access, and Slot~3 multiply-accumulate/CORDIC execution concurrently issuable in a single 4-wide bundle.
+Heavier scalar and vector engines are distributed across slots whose operators rarely co-execute in the same inner loop: Slot~0 handles control flow (\texttt{BJ}, \texttt{SYS} from RV32I) and basic vector arithmetic/modulation/rotation (\texttt{VALU}, \texttt{VMOD}, \texttt{VROT}); Slot~1 provides full RV32I scalar ALU (\texttt{SALU}) and vector search/permutation/address generation (\texttt{VSCH}, \texttt{VEI}, \texttt{VBCT}, \texttt{VSHF}, \texttt{VAGU}); Slot~2 centralizes all scalar and vector memory accesses (\texttt{SLSU}, \texttt{VLSU}) plus mask/compare units (\texttt{VMSK}, \texttt{VCOM}); and Slot~3 houses compute-intensive RV32M and complex baseband engines (\texttt{SMUL}, \texttt{SDIV}, \texttt{VDIV}, \texttt{VCOR}, \texttt{VMUL}, \texttt{VDEM}). (Slots~2 and~3 are visually swapped in \autoref{fig:arch} to show the direct datapath between Slot~2 and Data Memory.) Serializing all loads and stores onto Slot~2 eliminates multi-port data-memory arbitration and routing overhead while allowing Slot~0 control, Slot~1 vector address/shuffle, Slot~2 streaming memory access, and Slot~3 complex MAC/CORDIC execution to issue concurrently in one 4-wide bundle.
 
 \begin{table}[t]
 \centering
-\caption{Functional Units and Descriptions}
+\caption{Heterogeneous VLIW Slot Functional Unit Organization}
 \label{tab:fu}
-\begin{tabular}{|>{\centering\arraybackslash}p{0.25\linewidth}|>{\centering\arraybackslash}p{0.15\linewidth}|>{\raggedright\arraybackslash}p{0.45\linewidth}|}
-\hline
-\textbf{VLIW Slot} & \textbf{Functional Unit} & \multicolumn{1}{>{\centering\arraybackslash}p{0.45\linewidth}|}{\textbf{Description}} \\
-\hline
-\multirow{6}{*}{\makecell[c]{0 \\ (Program Control \\ \& Simple Vector)}} 
-& RCFU & Replicated Common Functional Unit (available in all slots)\\
-\cline{2-3}
-& BJ & Branch and Jump (from RV32I) \\
-\cline{2-3}
-& SYS & System control (wfi only, from RV32I) \\
-\cline{2-3}
-& VALU & Vector Arithmetic and Logic Operations \\
-\cline{2-3}
-& VMOD & Vector Modulation \\
-\cline{2-3}
-& VROT & Vector Rotate \\
-\hline
-\multirow{7}{*}{\makecell[c]{1 \\ (Scalar \& \\ Simple Vector)}}
-& RCFU & Replicated Common Functional Unit (available in all slots)\\
-\cline{2-3}
-& SALU & Scalar Arithmetic and Logic Operations (from RV32I) \\
-\cline{2-3}
-& VSCH & Vector Search \\
-\cline{2-3}
-& VEI & Vector Extract and Insert \\
-\cline{2-3}
-& VBCT & Vector Bit Count \\
-\cline{2-3}
-& VSHF & Vector Shuffle \\
-\cline{2-3}
-& VAGU & Vector Address Operations \\
-\hline
-\multirow{5}{*}{\makecell[c]{2 \\ (Load and Store \\ related)}}
-& RCFU & Replicated Common Functional Unit (available in all slots)\\
-\cline{2-3}
-& SLSU & Scalar Load and Store (from RV32I) \\
-\cline{2-3}
-& VLSU & Vector Load and Store \\
-\cline{2-3}
-& VMSK & Vector Mask / Predicate \\
-\cline{2-3}
-& VCOM & Vector Compare \\
-\hline
-\multirow{7}{*}{\makecell[c]{3 \\ (Complex \\ Operations)}}
-& RCFU & Replicated Common Functional Unit (available in all slots)\\
-\cline{2-3}
-& SMUL & Scalar Multiply (from RV32M) \\
-\cline{2-3}
-& SDIV & Scalar Division (from RV32M) \\
-\cline{2-3}
-& VDIV & Vector Division \\
-\cline{2-3}
-& VCOR & Vector CORDIC \\
-\cline{2-3}
-& VMUL & Vector Multiply and Multiply-Accumulate \\
-\cline{2-3}
-& VDEM & Vector Demodulation \\
-\hline
+\renewcommand{\arraystretch}{1.11}
+\setlength{\tabcolsep}{3.8pt}
+\begin{tabular}{@{}>{\centering\arraybackslash}p{0.25\linewidth}>{\centering\arraybackslash}p{0.12\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\toprule
+\textbf{VLIW Slot} & \textbf{FU} & \textbf{Supported Operations} \\
+\midrule
+\multirow{6}{*}{\makecell[c]{\textbf{Slot 0}\\Program Control\\\& Simple Vector}}
+& RCFU & Replicated common FU (in all 4 slots) \\
+& BJ   & Branch and jump (from RV32I) \\
+& SYS  & System control (\texttt{wfi} only, from RV32I) \\
+& VALU & Vector arithmetic and logic operations \\
+& VMOD & Vector constellation modulation \\
+& VROT & Vector phase rotation \\
+\midrule
+\multirow{7}{*}{\makecell[c]{\textbf{Slot 1}\\Scalar \&\\Simple Vector}}
+& RCFU & Replicated common FU (in all 4 slots) \\
+& SALU & Scalar arithmetic and logic (from RV32I) \\
+& VSCH & Vector peak/index search \\
+& VEI  & Vector element extract and insert \\
+& VBCT & Vector bit count \\
+& VSHF & Vector lane shuffle \\
+& VAGU & Vector address generation \\
+\midrule
+\multirow{5}{*}{\makecell[c]{\textbf{Slot 2}\\Load/Store \&\\Predication}}
+& RCFU & Replicated common FU (in all 4 slots) \\
+& SLSU & Scalar load and store (from RV32I) \\
+& VLSU & Vector load and store \\
+& VMSK & Vector mask / predicate manipulation \\
+& VCOM & Vector element compare \\
+\midrule
+\multirow{7}{*}{\makecell[c]{\textbf{Slot 3}\\Complex \&\\Multi-Cycle Ops}}
+& RCFU & Replicated common FU (in all 4 slots) \\
+& SMUL & Scalar multiply (from RV32M) \\
+& SDIV & Scalar division (from RV32M) \\
+& VDIV & Vector division \\
+& VCOR & Vector CORDIC engine \\
+& VMUL & Vector multiply and multiply-accumulate \\
+& VDEM & Vector soft demodulation \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-Together, 4-way static VLIW dispatch and 16-lane 640-bit SIMD execution exploit orthogonal instruction-level parallelism (ILP) and data-level parallelism (DLP) without dynamic dependency-checking hardware. Whenever a variable-length bundle contains fewer than four instructions, the VLIW dispatch stage automatically injects hardware NOP bubbles into unoccupied slots on the fly. At the subsystem boundary (\autoref{fig:arch}), the core integrates an AXI interface, configurable tightly coupled memories (TCMs) for deterministic zero-cache-miss program and data access, a dedicated DMA engine to overlap bulk symbol transfers with computation, and a hardware semaphore unit for low-overhead multi-core event synchronization.
+Combining 4-way static VLIW issue with 16-lane 640-bit SIMD vectors exploits orthogonal instruction-level parallelism (ILP) and data-level parallelism (DLP) without dynamic hazard scoreboards. For bundles narrower than four instructions, the VLIW dispatch stage dynamically inserts hardware NOP bubbles into idle slots at zero code-size cost. At the core boundary (\autoref{fig:arch}), an AXI master/slave interface, configurable tightly coupled memories (TCMs) for deterministic zero-cache-miss instruction and data access, a dedicated DMA engine for overlapped symbol streaming, and a hardware semaphore unit for low-latency event synchronization complete the subsystem.
 
 \subsection{Compiler Support and Instruction Scheduling Optimization}
 \label{subsec:compiler}
 
-Because our co-processor omits dynamic out-of-order hardware and runtime dependency scoreboards, compiler co-design is essential to translate streamlined silicon into high VLIW slot packing density and deterministic throughput. Built upon LLVM, our backend models all domain-specific ISA and pipeline contracts across instruction lowering, register allocation, hazard-aware scheduling, and variable-length bundle emission.
+Because the co-processor omits dynamic out-of-order execution and hardware interlocks, compiler co-design is essential to translate streamlined silicon into dense VLIW bundles and deterministic throughput. Built upon LLVM, our backend models all ISA and pipeline contracts across custom lowering, register pressure containment, hazard-exact scheduling, and prefix-packed code emission.
 
 \textbf{Domain-Specific Lowering and Slot-2 Spill Avoidance.}
-In the instruction-selection layer, wireless PHY operators from Table~\ref{tab:operator} are exposed through intrinsics and custom lowering patterns targeting our 640-bit guarded SIMD instructions, 4-entry mask predicates, and MCFUs. Multi-result full-precision operations---such as wide multiply-accumulate, complex dot products, small-matrix primitives, and combined division/remainder---lower atomically into single dual-destination (\texttt{rd}, \texttt{rd2}) R-type instructions (\autoref{fig:key-ISA-modifications}(b)), eliminating result-splitting instruction pairs and shortening operand lifetimes. Simultaneously, the 40-bit split-guard vector format (\autoref{fig:simd}) retains multi-stage accumulation headroom in-place within a single 640-bit register rather than widening 16-bit $(I, Q)$ lanes across register pairs. Together, dual-destination coalescing and in-place guarded accumulation contain live register pressure within the compact 16-entry scalar and vector register files, preventing register-spill loads and stores from contending with streaming baseband \texttt{VLSU} traffic on the single memory slot (Slot~2).
+Wireless PHY primitives from \autoref{tab:operator} are exposed via intrinsics and custom DAG lowering rules targeting 640-bit guarded SIMD ops, 4-entry vector masks, and MCFUs. Full-precision dual-result kernels (wide MACs, complex dot products, small-matrix operations, and combined division/remainder) lower atomically into single dual-destination (\texttt{rd}, \texttt{rd2}) instructions (\autoref{fig:key-ISA-modifications}(b)), eliminating result-splitting instruction pairs and shortening operand live ranges. Concurrently, the 40-bit split-guard element format (\autoref{fig:simd}) maintains multi-stage accumulation precision in-place within one 640-bit register rather than widening 16-bit $(I, Q)$ lanes across register pairs. Together, dual-destination coalescing and in-place guarded accumulation keep live register demand within the 16-entry scalar and vector register files, preventing spill loads/stores from contending with streaming \texttt{VLSU} traffic on the single memory slot (Slot~2).
 
 \textbf{Non-Stalling MCFU Hazard and Upper-Bound Modeling.}
-Let $G = (V, E)$ denote the post-allocation data-dependence DAG of a scheduling region. Because MCFUs (such as \texttt{VCOR} and \texttt{VDIV}) execute asynchronously without stalling the 10-stage pipeline, every directed edge $(u, v) \in E$ encodes a deterministic cycle separation $\delta(u, v) \ge 1$: true \texttt{RAW} dependencies enforce producer execution latency $\delta(u, v) = \ell(u)$, while \texttt{WAW} edges across physical registers---tracking both \texttt{rd} and \texttt{rd2} writebacks---enforce writeback-order separation $\delta(u, v) = \max(1, \ell(u) - \ell(v) + 1)$ so fast single-cycle instructions never clobber or collide with in-flight MCFU completions.
+Let $G = (V, E)$ denote the post-allocation dependence DAG of a scheduling region. Because MCFUs (e.g., \texttt{VCOR}, \texttt{VDIV}) and memory pipelines execute without hardware stall interlocks, every directed edge $(u, v) \in E$ carries a mandatory cycle separation $\delta(u, v) \ge 1$: true \texttt{RAW} edges enforce full producer latency $\delta(u, v) = \ell(u)$; anti-dependence (\texttt{WAR}) edges enforce $\delta(u, v) = 1$ under in-order operand read; and physical-register \texttt{WAW} edges---tracking both \texttt{rd} and \texttt{rd2} writebacks---enforce $\delta(u, v) = \max(1, \ell(u) - \ell(v) + 1)$ so single-cycle operations never clobber or collide with in-flight multi-cycle completions.
 
-Each instruction $u \in V$ is further restricted to an admissible slot set $\mathcal{S}(u) \subseteq \{0, 1, 2, 3\}$ from \autoref{tab:fu}: dedicated control, memory, vector, and RV32M instructions satisfy $|\mathcal{S}(u)| = 1$, whereas scalar instructions mapped to the replicated \texttt{RCFU} satisfy $\mathcal{S}(u) = \{0, 1, 2, 3\}$. Prior to scheduling $G$, the compiler derives a lightweight bundle-count lower bound $L_{\mathrm{LB}}(G)$ to quantify the theoretical ceiling on both IPC and slot packing rate $\rho = |V| / (4L)$. First, dependency chains impose a critical-path latency bound:
+Each instruction $u \in V$ maps to an admissible slot set $\mathcal{S}(u) \subseteq \{0, 1, 2, 3\}$ from \autoref{tab:fu}: slot-dedicated control, memory, vector, and RV32M instructions satisfy $|\mathcal{S}(u)| = 1$, whereas scalar operations eligible for the replicated \texttt{RCFU} satisfy $\mathcal{S}(u) = \{0, 1, 2, 3\}$. Before scheduling $G$, the compiler computes a fast bundle-count lower bound $L_{\mathrm{LB}}(G)$ to establish exact ceilings on IPC and slot packing rate $\rho = |V| / (4L)$. First, weighted dependency chains impose a critical-path latency bound:
 \begin{equation}
 L_{\mathrm{dep}}(G) = \max_{\pi \in \mathcal{P}(G)} \sum_{(u,v) \in \pi} \delta(u, v) + 1,
 \label{eq:ldep}
@@ -232,114 +215,113 @@ where $\mathcal{P}(G)$ denotes all directed paths in $G$. Second, partitioning $
 L_{\mathrm{res}}(G) = \max\!\left( \max_{s \in \{0..3\}} |V_s|,\; \left\lceil \frac{\sum_{s=0}^{3} |V_s| + |V_{\mathrm{rcfu}}|}{4} \right\rceil \right).
 \label{eq:lres}
 \end{equation}
-Equation~\eqref{eq:lres} formalizes the co-design benefit of \texttt{RCFU} replication: migrating ubiquitous scalar glue operations out of a single-slot bottleneck $|V_s|$ into the pooled term $|V_{\mathrm{rcfu}}|/4$ directly lowers $L_{\mathrm{res}}(G)$. Combining~\eqref{eq:ldep} and~\eqref{eq:lres} yields $L_{\mathrm{LB}}(G) = \max(L_{\mathrm{dep}}(G), L_{\mathrm{res}}(G))$, bounding achievable IPC by $\mathrm{IPC}_{\mathrm{UB}}(G) = |V| / L_{\mathrm{LB}}(G)$ and steady-state slot packing rate by $\rho_{\mathrm{UB}}(G) = |V| / (4 L_{\mathrm{LB}}(G))$.
+Equation~\eqref{eq:lres} captures the analytical payoff of \texttt{RCFU} replication: shifting ubiquitous scalar glue ops out of a single-slot bottleneck $|V_s|$ into the pooled term $|V_{\mathrm{rcfu}}|/4$ directly reduces $L_{\mathrm{res}}(G)$. Combining~\eqref{eq:ldep} and~\eqref{eq:lres} gives $L_{\mathrm{LB}}(G) = \max(L_{\mathrm{dep}}(G), L_{\mathrm{res}}(G))$, bounding achievable IPC by $\mathrm{IPC}_{\mathrm{UB}}(G) = |V| / L_{\mathrm{LB}}(G)$ and slot packing density by $\rho_{\mathrm{UB}}(G) = |V| / (4 L_{\mathrm{LB}}(G))$.
 
 \textbf{Bound-Gated List--ILP Scheduling and Prefix Packing.}
-Guided by $L_{\mathrm{LB}}(G)$, scheduling proceeds in two stages. In Stage~1, a fast critical-path list scheduler ranks ready instructions by critical height and breaks ties by slot scarcity ($|\mathcal{S}(u)| = 1$ ahead of $|\mathcal{S}(u)| = 4$); within each cycle, slot-exclusive ops claim their dedicated slots before flexible \texttt{RCFU} ops populate remaining open slots, yielding $L_{\mathrm{list}}(G)$ bundles. Whenever $L_{\mathrm{list}}(G) = L_{\mathrm{LB}}(G)$, the schedule is certified as provably optimal and accepted immediately. However, across coupled multi-slot chains (e.g., \texttt{VLSU}$\to$\texttt{VSHF}$\to$\texttt{VMUL} competing with branch-counter updates), myopic cycle-by-cycle tie-breaking can still stall a bottleneck slot in a later cycle ($L_{\mathrm{list}}(G) > L_{\mathrm{LB}}(G)$). Only on such suboptimal regions does Stage~2 formulate a 0--1 ILP within the tight horizon $[1, L_{\mathrm{list}}(G)]$. Using ASAP/ALAP bounds to prune each instruction's feasible issue window $[E_u, L_u]$, binary variables $x_{u,s,t} \in \{0, 1\}$ ($s \in \mathcal{S}(u), t \in [E_u, L_u]$) minimize makespan $L \in [L_{\mathrm{LB}}(G), L_{\mathrm{list}}(G)]$ subject to single-assignment ($\sum_{s,t} x_{u,s,t} = 1$), per-slot exclusivity ($\sum_{u:s\in\mathcal{S}(u)} x_{u,s,t} \le 1$), and latency precedence ($\sum_{s,t} t\,x_{v,s,t} - \sum_{s,t} t\,x_{u,s,t} \ge \delta(u,v)$), with a solver timeout safely falling back to $L_{\mathrm{list}}(G)$. Finally, machine-code emission strips unpopulated slots, tags active instructions with \texttt{slot[2:1]}, and sets \texttt{e = 1} on each bundle's last word.
+Guided by $L_{\mathrm{LB}}(G)$, scheduling proceeds in two stages. Stage~1 runs a fast critical-path list scheduler that prioritizes ready nodes by critical height and breaks ties by slot scarcity ($|\mathcal{S}(u)| = 1$ before $|\mathcal{S}(u)| = 4$); within each bundle, exclusive operations claim their fixed slots before \texttt{RCFU} candidates fill remaining open slots, producing $L_{\mathrm{list}}(G)$ bundles. Whenever $L_{\mathrm{list}}(G) = L_{\mathrm{LB}}(G)$, the schedule is certified optimal and accepted immediately. On tightly coupled multi-slot DAGs where greedy tie-breaking leaves a positive optimality gap ($L_{\mathrm{list}}(G) > L_{\mathrm{LB}}(G)$), Stage~2 invokes a 0--1 ILP bounded within $[1, L_{\mathrm{list}}(G)]$. Pruning each instruction's issue window $[E_u, L_u]$ via ASAP/ALAP analysis, binary variables $x_{u,s,t} \in \{0, 1\}$ ($s \in \mathcal{S}(u), t \in [E_u, L_u]$) minimize makespan $L \in [L_{\mathrm{LB}}(G), L_{\mathrm{list}}(G)]$ subject to unique issue ($\sum_{s,t} x_{u,s,t} = 1$), per-slot exclusivity and MCFU writeback non-collision ($\sum_{u:s\in\mathcal{S}(u)} x_{u,s,t} \le 1$), and latency precedence ($\sum_{s,t} t\,x_{v,s,t} - \sum_{s,t} t\,x_{u,s,t} \ge \delta(u,v)$), with a solver timeout safely falling back to $L_{\mathrm{list}}(G)$. Code emission then strips empty slots, encodes \texttt{slot[2:1]}, and sets \texttt{e = 1} on the final active word of each bundle.
 
 \textbf{Structured Contracts for Agent-Augmented Co-Design.}
-Rapid wireless protocol evolution (such as SLB 1.0 to 2.0) demands fast compiler adaptation whenever new custom instructions or MCFUs are introduced. Inspired by recent advances in agentic kernel and compiler co-design~\cite{liao2026kernelevolve, ye2026cake}, we observe that domain-specific VLIW compilation is uniquely amenable to AI-driven automation because its explicit architectural contracts---$\mathcal{S}(u)$, $\delta(u,v)$, and the quantitative bound gap $L_{\mathrm{list}}(G) - L_{\mathrm{LB}}(G)$---supply exact, machine-verifiable diagnostics for automated lowering and scheduling-rule refinement.
+Rapid standard evolution (e.g., SLB 1.0 to 2.0) requires swift compiler retargeting as custom instructions or MCFUs evolve. Motivated by recent advances in agentic kernel and compiler co-design~\cite{liao2026kernelevolve, ye2026cake}, we note that static VLIW backends are uniquely suited to AI-driven automation: explicit architectural contracts---$\mathcal{S}(u)$, $\delta(u,v)$, and the exact optimality gap $L_{\mathrm{list}}(G) - L_{\mathrm{LB}}(G)$---provide localized, machine-verifiable diagnostics for automated lowering and scheduling refinement.
 
 \subsection{Co-Design Case Study: Slot Packing and Code Compaction}
 \label{subsec:casestudy}
 
-To illustrate how our ISA, datapath, and compiler mechanisms jointly elevate VLIW bundle packing density and shrink code footprint, we trace a representative PHY inner kernel from Table~\ref{tab:operator}: 16-lane sliding-window complex cross-correlation with frequency-offset compensation, widely used in SLB synchronization and filtering. Using software-pipelined vector buffering within the 16-entry vector RF to overlap cross-iteration memory latencies, each steady-state loop iteration $G$ comprises $|V| = 8$ instructions: sample prefetch $u_1$ (\texttt{VLSU}, Slot~2), phase rotation $u_2$ (\texttt{VROT}, Slot~0), sliding-window lane alignment $u_3$ (\texttt{VSHF}, Slot~1, consuming $u_1$), guarded complex MAC $u_4$ (\texttt{VMUL}, Slot~3, consuming $u_2$), sample and tap pointer updates $u_5, u_6$ (\texttt{addi}, post-updating $u_1$'s address), loop-counter decrement $u_7$ (\texttt{addi}), and loop-back branch $u_8$ (\texttt{BJ}, Slot~0, consuming $u_7$).
+To illustrate how ISA, microarchitecture, and compiler mechanisms jointly maximize bundle density, we trace a canonical PHY inner loop from \autoref{tab:operator}: 16-lane sliding-window complex cross-correlation with frequency-offset compensation. Double-buffered vector staging within the 16-entry vector RF overlaps multi-cycle 10-stage memory loads across iterations: in iteration $k$, prefetch $u_1$ (\texttt{VLSU}, Slot~2) loads the sample vector for iteration $k{+}1$, while phase rotation $u_2$ (\texttt{VROT}, Slot~0) and sliding-window alignment $u_3$ (\texttt{VSHF}, Slot~1) process buffered vectors from iteration $k{-}1$. Guarded complex MAC $u_4$ (\texttt{VMUL}, Slot~3) consumes both $u_2$ and $u_3$ ($\delta = 1$); pointer updates $u_5$ (post-incrementing $u_1$'s address, \texttt{WAR} $\delta = 1$) and $u_6$ (\texttt{addi}), loop-counter decrement $u_7$ (\texttt{addi}), and loop-back branch $u_8$ (\texttt{BJ}, Slot~0, consuming $u_7$ with \texttt{RAW} $\delta = 1$) complete the $|V| = 8$ steady-state DAG $G$.
 
 \begin{center}
 \scriptsize
-\renewcommand{\arraystretch}{1.25}
-\setlength{\tabcolsep}{3.6pt}
-\begin{tabular}{|c|c|c|c|c|}
-\hline
+\renewcommand{\arraystretch}{1.18}
+\setlength{\tabcolsep}{4.2pt}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
 \textbf{Bundle} & \textbf{Slot 0} & \textbf{Slot 1} & \textbf{Slot 2} & \textbf{Slot 3} \\
-\hline
-\textbf{B1} & \makecell[c]{$u_2$: \texttt{VROT}\\[-1pt]\texttt{[00,0]}} & \makecell[c]{$u_6$: \texttt{RCFU}\\[-1pt]\texttt{[01,0]}} & \makecell[c]{$u_1$: \texttt{VLSU}\\[-1pt]\texttt{[10,0]}} & \makecell[c]{$u_7$: \texttt{RCFU}\\[-1pt]\texttt{[11,1]}} \\
-\hline
-\textbf{B2} & \makecell[c]{$u_8$: \texttt{BJ}\\[-1pt]\texttt{[00,0]}} & \makecell[c]{$u_3$: \texttt{VSHF}\\[-1pt]\texttt{[01,0]}} & \makecell[c]{$u_5$: \texttt{RCFU}\\[-1pt]\texttt{[10,0]}} & \makecell[c]{$u_4$: \texttt{VMUL}\\[-1pt]\texttt{[11,1]}} \\
-\hline
+\midrule
+\textbf{B1} & \makecell[c]{$u_2$: \texttt{VROT}\\[-1pt]\texttt{[00,0]}} & \makecell[c]{$u_3$: \texttt{VSHF}\\[-1pt]\texttt{[01,0]}} & \makecell[c]{$u_1$: \texttt{VLSU}\\[-1pt]\texttt{[10,0]}} & \makecell[c]{$u_7$: \texttt{RCFU}\\[-1pt]\texttt{[11,1]}} \\
+\midrule
+\textbf{B2} & \makecell[c]{$u_8$: \texttt{BJ}\\[-1pt]\texttt{[00,0]}} & \makecell[c]{$u_6$: \texttt{RCFU}\\[-1pt]\texttt{[01,0]}} & \makecell[c]{$u_5$: \texttt{RCFU}\\[-1pt]\texttt{[10,0]}} & \makecell[c]{$u_4$: \texttt{VMUL}\\[-1pt]\texttt{[11,1]}} \\
+\bottomrule
 \end{tabular}
 \end{center}
 
 \textbf{Steady-State Slot Packing Rate.}
-On a conventional heterogeneous VLIW without \texttt{RCFU} replication, all three scalar \texttt{addi} operations ($u_5, u_6, u_7$) must issue on \texttt{SALU} in Slot~1 alongside $u_3$ (\texttt{VSHF}), creating a severe single-slot bottleneck $|V_1| = 4$. By~\eqref{eq:lres}, $L_{\mathrm{res}}(G) = 4$ bundles, capping steady-state slot packing density at $\rho = 8 / (4 \times 4) = 50.0\%$ ($\mathrm{IPC} = 2.0$). Replicating \texttt{RCFU} across all four slots migrates $u_5, u_6, u_7$ into $V_{\mathrm{rcfu}}$, reducing exclusive counts to $|V_0| = 2, |V_1| = |V_2| = |V_3| = 1$ and lowering $L_{\mathrm{res}}(G)$ to $\max(2, \lceil 8/4 \rceil) = 2$ bundles, matching $L_{\mathrm{dep}}(G) = 2$. While naive cycle-local scheduling that fills Slot~3 with an independent MAC or non-critical \texttt{addi} in Bundle~1 delays $u_7 \to u_8$ into a third bundle ($\rho = 66.7\%$, $\mathrm{IPC} = 2.67$), our bound-guided scheduler achieves the certified 2-bundle optimum (\textbf{B1}--\textbf{B2} above, tagged with \texttt{[slot,e]}), doubling loop throughput and reaching $\rho = 100\%$ steady-state slot occupancy ($\mathrm{IPC} = 4.0$).
+Without \texttt{RCFU} replication, all three scalar \texttt{addi} ops ($u_5, u_6, u_7$) must issue on \texttt{SALU} in Slot~1 alongside $u_3$ (\texttt{VSHF}), creating a single-slot bottleneck $|V_1| = 4$. By~\eqref{eq:lres}, $L_{\mathrm{res}}(G) = 4$ bundles, capping slot packing density at $\rho = 8 / (4 \times 4) = 50.0\%$ ($\mathrm{IPC} = 2.0$). Four-way \texttt{RCFU} replication moves $u_5, u_6, u_7$ into $V_{\mathrm{rcfu}}$, reducing exclusive counts to $|V_0| = 2, |V_1| = |V_2| = |V_3| = 1$ and lowering $L_{\mathrm{res}}(G)$ to $\max(2, \lceil 8/4 \rceil) = 2$ bundles, matching $L_{\mathrm{dep}}(G) = 2$. Whereas unguided local placement that schedules non-critical $u_6$ into \textbf{B1} Slot~3 ahead of $u_7$ pushes $u_7 \to u_8$ into a third bundle ($\rho = 66.7\%$, $\mathrm{IPC} = 2.67$), our bound-guided scheduler certifies the 2-bundle optimum (\textbf{B1}--\textbf{B2}, annotated with \texttt{[slot,e]}), doubling steady-state throughput to $\rho = 100\%$ ($\mathrm{IPC} = 4.0$).
 
 \textbf{Variable-Length Prefix Code Compaction.}
-Across the complete pipelined routine---spanning a 2-bundle startup prologue ($1 + 2 = 3$ ops), the 2-bundle steady-state kernel ($8$ ops), and a 3-bundle drain/reduction epilogue ($2 + 1 + 1 = 4$ ops, leveraging guarded accumulation and dual-destination result extraction)---execution spans 7 VLIW bundles containing 15 instructions. Fixed 128-bit VLIW encoding must store $7 \times 4 = 28$ instruction words (112\,B), wasting 13 words (46.4\%) on sparse prologue/epilogue NOPs. In contrast, our 3-bit prefix format stores only the 15 active words (60\,B), cutting static code size and ITCM fetch footprint by 46.4\% while hardware dispatch injects idle-slot bubbles dynamically at zero cycle cost.
+Over the complete software-pipelined routine---comprising a 2-bundle startup prologue ($1 + 2 = 3$ ops), the 2-bundle steady-state loop ($8$ ops), and a 3-bundle drain/reduction epilogue ($2 + 1 + 1 = 4$ ops using split-guard accumulation and dual-destination extraction)---the program spans 7 VLIW bundles holding 15 instructions. Fixed 128-bit VLIW encoding requires $7 \times 4 = 28$ words (112\,B), wasting 13 words (46.4\%) on sparse prologue/epilogue NOPs. Our 3-bit prefix encoding stores only the 15 active words (60\,B), shrinking static code size and ITCM fetch traffic by 46.4\% while hardware dispatch injects idle-slot bubbles dynamically at zero cycle penalty.
 
 \section{Implementation and Evaluation}
 
 \subsection{SparkLink SLB Baseband SoC Architecture}
 
-To validate the proposed co-processor (\textit{Co-Pro}) in a production wideband system, we designed and taped out a full SparkLink SLB 2.0 baseband SoC integrating three Co-Pro instances (\autoref{fig:soc}). The SoC comprises a physical-layer (\texttt{PHY-Subsystem}) and a protocol-stack (\texttt{PS-Subsystem}) interconnected via shared AXI/APB fabrics. Within the PHY subsystem, standardized fixed-function processing such as front-end filtering and channel coding is handled by the digital front-end (\texttt{DFE}) and dedicated \texttt{ASIC-ACCs}, whereas the three programmable Co-Pros---coupled through an \texttt{AXI Cross Bar} to \texttt{AXI-PHY}, \texttt{DMA-PHY}, \texttt{Local Memory}, and \texttt{L1C-CPU}---execute all evolving symbol-level PHY algorithms and hard-real-time L1 scheduling tasks. This hybrid SoC partitioning sustains a peak 80\,MHz 2T2R configuration delivering 800\,Mbps actual throughput while preserving full software adaptability across incompatible protocol revisions.
+To validate the proposed co-processor (\textit{Co-Pro}) in a production wideband transceiver, we architected and taped out a SparkLink SLB 2.0 baseband SoC integrating three Co-Pro cores (\autoref{fig:soc}). The chip partitions into a physical-layer (\texttt{PHY-Subsystem}) and a protocol-stack (\texttt{PS-Subsystem}) linked via shared AXI and APB fabrics. Within the PHY subsystem, stationary standardized blocks such as front-end filtering and channel decoding run on the digital front-end (\texttt{DFE}) and fixed \texttt{ASIC-ACCs}, whereas the three programmable Co-Pros---interconnected via an \texttt{AXI Cross Bar} to \texttt{AXI-PHY}, \texttt{DMA-PHY}, \texttt{Local Memory}, and \texttt{L1C-CPU}---execute all evolving symbol-rate PHY kernels and hard-real-time L1 scheduling tasks. This hybrid SoC architecture sustains peak 2T2R@80\,MHz operation with 800\,Mbps measured data throughput while retaining full software upgradability across incompatible protocol generations.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=1\linewidth]{Figs/Overview of the CoPro-based baseband SoC for SparkLink SLB.jpg}
-    \caption{Overview of the Co-Pro-based baseband SoC for SparkLink SLB}
+    \includegraphics[width=0.98\linewidth]{Figs/fig4_soc.pdf}
+    \caption{Overview of the Co-Pro-based Baseband SoC for SparkLink SLB}
     \label{fig:soc}
 \end{figure}
 
 \subsection{Physical Implementation and Post-Layout Comparison}
 
+Both the Co-Pro core and the full SLB 2.0 baseband SoC completed sign-off place-and-route implementation with final tapeout GDSII generated. \autoref{tab:metrics} benchmarks our post-layout core sign-off metrics against official vendor post-layout implementation reports for two flagship commercial communications DSP IPs: the wide multi-issue vector DSP CEVA XC12 and the compact vector DSP Tensilica ConnX B20.
+
 \begin{table}[t]
     \centering
-    \caption{Post-Layout Key Metrics Comparison}
+    \caption{Post-Layout Sign-Off Key Metrics Comparison}
     \label{tab:metrics}
     \begin{threeparttable}
-    \renewcommand{\arraystretch}{1.35}
-    \setlength{\extrarowheight}{1.5pt}
-    \begin{tabular}{|>{\centering\arraybackslash}m{2.2cm}|>{\centering\arraybackslash}m{1.6cm}|>{\centering\arraybackslash}m{1.6cm}|>{\centering\arraybackslash}m{1.6cm}|}
-        \hline
-        \textbf{} & \textbf{Proposed Co-Pro} & \textbf{CEVA XC12} & \textbf{Tensilica B20} \\
-        \hline
-        \textbf{Technology Node}& TSMC 22 nm ULL& TSMC 16 nm FCLL& TSMC 16 nm \\
-        \hline
-        \textbf{Operating Frequency}& 800 MHz& 600 MHz & 1.1 GHz \\
-        \hline
-        \textbf{Core STD Cell Area}& 0.98 mm\textsuperscript{2}& 2.08 mm\textsuperscript{2} & 0.966 mm\textsuperscript{2} \\
-        \hline
-        \textbf{Core Dynamic Power}& 573.4 mW& 1044 mW& 786.5 mW\\\hline
+    \renewcommand{\arraystretch}{1.22}
+    \setlength{\tabcolsep}{4.2pt}
+    \footnotesize
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}m{2.45cm}>{\centering\arraybackslash}m{1.85cm}>{\centering\arraybackslash}m{1.80cm}>{\centering\arraybackslash}m{1.65cm}@{}}
+        \toprule
+        \textbf{Metric} & \textbf{Proposed Co-Pro} & \textbf{CEVA XC12} & \textbf{Tensilica B20} \\
+        \midrule
+        Technology Node & TSMC 22\,nm ULL & TSMC 16\,nm FCLL & TSMC 16\,nm \\
+        Operating Frequency & 800\,MHz & 600\,MHz & 1.1\,GHz \\
+        Core STD Cell Area & 0.98\,mm\textsuperscript{2} & 2.08\,mm\textsuperscript{2} & 0.966\,mm\textsuperscript{2} \\
+        Core Dynamic Power & 573.4\,mW & 1044\,mW & 786.5\,mW \\
+        \bottomrule
     \end{tabular}
     \begin{tablenotes}[flushleft]
         \scriptsize
-        \item All results are extracted from full sign-off post-place-and-route backend flows to ensure a consistent comparison basis.
-        \item Proposed Co-Pro: dynamic power measured on fft\_256 workload, TT process corner, 0.90\,V supply, 85\,$^\circ$C.
-        \item CEVA XC12: dynamic power measured on fft\_2048 workload, typical TT corner, 0.8\,V supply, 25\,$^\circ$C.
-        \item Tensilica B20: dynamic power measured on fixed-point vector MAC workload, typical TT corner, 0.8\,V supply, 25\,$^\circ$C.
+        \item All metrics are extracted from full sign-off post-place-and-route backend flows.
+        \item Proposed Co-Pro: dynamic power profiled on \texttt{fft\_256}, TT corner, 0.90\,V, 85\,$^\circ$C.
+        \item CEVA XC12: dynamic power profiled on \texttt{fft\_2048}, TT corner, 0.8\,V, 25\,$^\circ$C.
+        \item Tensilica B20: dynamic power profiled on fixed-point vector MAC, TT corner, 0.8\,V, 25\,$^\circ$C.
     \end{tablenotes}
     \end{threeparttable}
 \end{table}
 
-Both the Co-Pro core and the full SLB 2.0 baseband SoC have completed full sign-off place-and-route backend implementation with final tapeout GDSII generated. \autoref{tab:metrics} compares our post-layout core metrics against official vendor sign-off implementation reports for two industry-leading commercial baseband/communications DSP IPs: the high-end multi-issue vector DSP CEVA XC12 and the compact vector DSP Tensilica ConnX B20.
+Implemented in TSMC 22\,nm ULL technology, the Co-Pro closes sign-off timing at 800\,MHz with a 0.98\,mm\textsuperscript{2} standard-cell core area. Despite the substantial logic-density disadvantage of mature 22\,nm planar/ULL silicon relative to 16\,nm FinFET nodes, our core is 52.9\% smaller than the 16\,nm CEVA XC12 (2.08\,mm\textsuperscript{2}) and matches the compact 16\,nm Tensilica B20 (0.966\,mm\textsuperscript{2}) within 1.4\%. This area efficiency stems directly from co-design streamlining: pruning unused general-purpose DSP instructions, bounding scalar and 640-bit vector register files to 16 entries, serializing memory access onto Slot~2, and eliminating dynamic dispatch hardware.
 
-Implemented in TSMC 22\,nm ULL technology, the proposed Co-Pro closes timing at 800\,MHz with a core standard-cell area of 0.98\,mm\textsuperscript{2}. Despite the substantial transistor-density disadvantage of mature 22\,nm planar/ULL technology relative to 16\,nm FinFET processes, our core area is 52.9\% smaller than the 16\,nm CEVA XC12 (2.08\,mm\textsuperscript{2}) and matches the compact 16\,nm Tensilica B20 (0.966\,mm\textsuperscript{2}) within 1.4\%. This compactness stems directly from our co-designed architectural choices: pruning unused general-purpose DSP instructions, bounding scalar and 640-bit vector register files to 16 entries, serializing memory ports onto Slot~2, and eliminating dynamic issue logic.
-
-For power evaluation, we compare core dynamic power, which dominates active wireless baseband operation and isolates architectural switching efficiency from process-dependent subthreshold leakage. Measured on a representative \texttt{fft\_256} workload at 800\,MHz under a conservative 0.90\,V, 85\,$^\circ$C TT sign-off corner, the Co-Pro consumes 573.4\,mW---achieving 45.1\% and 27.1\% lower dynamic power than the 16\,nm CEVA XC12 (1044\,mW at 600\,MHz) and Tensilica B20 (786.5\,mW), respectively, even though both 16\,nm baselines are characterized at a lower 0.80\,V supply and 25\,$^\circ$C temperature.
+For power evaluation, we analyze core dynamic power, which dominates active baseband operation and isolates architectural switching activity from process-dependent leakage. Running \texttt{fft\_256} at 800\,MHz under a conservative 0.90\,V, 85\,$^\circ$C TT sign-off corner, the Co-Pro draws 573.4\,mW---45.1\% and 27.1\% lower absolute dynamic power than CEVA XC12 (1044\,mW at 600\,MHz) and Tensilica B20 (786.5\,mW at 1.1\,GHz), respectively, on their vendor-reported DSP kernels. Normalized by clock frequency, the Co-Pro expends 0.717\,mW/MHz, reducing dynamic energy per cycle by 58.8\% relative to CEVA XC12 (1.740\,mW/MHz) and matching the 16\,nm Tensilica B20 (0.715\,mW/MHz) despite a higher 0.90\,V supply ($1.27\times$ quadratic $V^2$ penalty over 0.8\,V) on a mature 22\,nm node. Accounting further for supply voltage via effective switching capacitance ($C_{\mathrm{eff}} = P_{\mathrm{dyn}} / (V^2 f)$), the Co-Pro achieves 67.5\% and 20.8\% lower per-cycle switching capacitance than XC12 and B20, respectively.
 
 \subsection{Software and System-Level Real-Time Evaluation}
 
-We evaluate end-to-end software execution across symbol and link levels on the production SLB 2.0 system under its most demanding protocol configuration: 80\,MHz bandwidth, 2T2R MIMO, and 4 concurrent users. Across the three cores, \texttt{Co-Pro\#0} is dedicated to fine-grained L1 control, multi-user slot scheduling, and DMA dataflow orchestration, while \texttt{Co-Pro\#1} and \texttt{Co-Pro\#2} execute symbol-streaming PHY kernels including synchronization, MIMO channel estimation/equalization, QAM demodulation, and channel-state measurement.
+We evaluate symbol- and link-level real-time execution on the SLB 2.0 platform under its most demanding peak mode: 80\,MHz channel bandwidth, 2T2R MIMO, and 4 concurrent active users. Across the three-core cluster, \texttt{Co-Pro\#0} executes fine-grained L1 control, multi-user slot scheduling, and DMA orchestration, while \texttt{Co-Pro\#1} and \texttt{Co-Pro\#2} run symbol-streaming PHY kernels spanning synchronization, MIMO channel estimation/equalization, QAM demodulation, and channel-quality measurement.
 
 \begin{table}[t]
     \centering
-    \caption{Symbol-Level Real-Time Performance}
+    \caption{Symbol-Level Real-Time Performance at 800\,MHz}
     \label{tab:symbol_perf}
     \begin{threeparttable}
-    \renewcommand{\arraystretch}{1.28}
+    \renewcommand{\arraystretch}{1.16}
     \footnotesize
-    \setlength{\tabcolsep}{4pt}
-    \begin{tabular}{|>{\raggedright\arraybackslash}m{2.75cm}|c|c|c|}
-        \hline
+    \setlength{\tabcolsep}{4.5pt}
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.05cm}ccc@{}}
+        \toprule
         \textbf{Processing Module} & \textbf{Measured ($\mu\mathrm{s}$)} & \textbf{Budget ($\mu\mathrm{s}$)} & \textbf{Margin (\%)} \\
-        \hline
-        \multicolumn{4}{|c|}{\textit{Co-Pro\#0: Control \& Scheduling Core}} \\
-        \hline
+        \midrule
+        \multicolumn{4}{@{}l@{}}{\textit{Co-Pro\#0: L1 Control \& Multi-User Scheduling Core}} \\
+        \cmidrule{1-4}
         Tx: worst case of 49 symbols & 8.923 & 8.928 & 0.06 \\
         Rx: single-user peak & 6.979 & 8.928 & 21.83 \\
         Rx: 4-user DATA peak & 8.710 & 8.928 & 2.44 \\
-        \hline
-        \multicolumn{4}{|c|}{\textit{Co-Pro\#1/2: Physical-Layer Computation Cores}} \\
-        \hline
+        \midrule
+        \multicolumn{4}{@{}l@{}}{\textit{Co-Pro\#1/2: Physical-Layer Computation Cores}} \\
+        \cmidrule{1-4}
         Initial synchronization & 18.696 & 22.50 & 16.91 \\
         Tracking synchronization & 9.404 & 16.055 & 41.43 \\
         2T2R COMB1 & 16.610 & 20.070 & 17.24 \\
@@ -348,53 +330,53 @@ We evaluate end-to-end software execution across symbol and link levels on the p
         2T2R 1024-QAM & 8.930 & 16.055 & 44.38 \\
         2T2R 4096-QAM & 9.440 & 16.055 & 41.2 \\
         CQI/RI/SINR & 14.285 & 16.055 & 11.02 \\
-        \hline
+        \bottomrule
     \end{tabular}
     \begin{tablenotes}[flushleft]
         \scriptsize
-        \item All results measured under 2T2R@80MHz peak configuration with 4 concurrent users.
-        \item Timing budget is derived from the SLB 2.0 protocol symbol duration and processing pipeline constraints.
+        \item Profiled under peak 2T2R@80\,MHz configuration with 4 concurrent users.
+        \item Budgets reflect SLB 2.0 OFDM symbol duration and pipeline depth limits.
     \end{tablenotes}
     \end{threeparttable}
 \end{table}
 
 \textbf{Deterministic Symbol-Level Execution.}
-In streaming OFDM pipelines, every symbol task must complete strictly within its protocol budget to avoid link drops. \autoref{tab:symbol_perf} reports the measured 800\,MHz execution latencies of the most demanding peak kernels alongside their protocol budgets. On the control core (\texttt{Co-Pro\#0}), even the worst-case transmit scheduling pattern across 49 symbol types (8.923\,$\mu$s vs.\ 8.928\,$\mu$s, 0.06\% margin) and 4-user receive peak scheduling (8.710\,$\mu$s, 2.44\% margin) meet the hard symbol deadline deterministically; across the full set of protocol symbol configurations, \texttt{Co-Pro\#0} maintains an average timing margin of 50.81\% (up to 79.68\% best-case). Crucially, because all code and data reside in local TCMs synchronized via hardware semaphores and scheduled statically without cache misses or branch speculation, a positive worst-case margin guarantees jitter-free real-time compliance.
+In streaming OFDM transceivers, every symbol task must finish strictly within its protocol budget to prevent buffer overruns and link drops. \autoref{tab:symbol_perf} summarizes 800\,MHz execution latencies for the most intensive peak kernels. On \texttt{Co-Pro\#0}, even the worst-case transmit control schedule across all 49 symbol formats (8.923\,$\mu$s vs.\ 8.928\,$\mu$s budget, 0.06\% margin) and 4-user receive peak scheduling (8.710\,$\mu$s, 2.44\% margin) meet the symbol deadline, while across all protocol symbol patterns \texttt{Co-Pro\#0} maintains a 50.81\% average margin (up to 79.68\% best-case). Crucially, because instructions and data reside in local cacheless TCMs coordinated via hardware semaphores under static VLIW schedules free of cache misses or branch mispredictions, any positive worst-case margin guarantees zero-jitter real-time compliance.
 
-\textbf{High-Order MIMO-QAM Scalability.}
-On the PHY compute cores (\texttt{Co-Pro\#1/2}), the most intensive joint channel estimation and equalization mode (\texttt{2T2R COMB2}) completes in 22.830\,$\mu$s within its 24.084\,$\mu$s budget (5.21\% margin), while across all PHY symbol tasks the cores sustain a 34.34\% average margin and 77.11\% best margin. Notably, scaling 2T2R MIMO demodulation across a 16$\times$ increase in constellation density---from 256-QAM (7.30\,$\mu$s) to 1024-QAM (8.930\,$\mu$s) and 4096-QAM (9.440\,$\mu$s)---increases execution time by only 29.3\%, preserving 41.2\% margin under the 16.055\,$\mu$s budget. This sublinear latency growth highlights the effectiveness of pairing 640-bit split-guard SIMD vector units (\texttt{VMUL}, \texttt{VDEM}, \texttt{VCOR}) with 4-slot \texttt{RCFU}/address-generation parallelism through our hybrid List--ILP compiler.
+\textbf{Cross-Kernel PHY and High-Order QAM Scalability.}
+On the two PHY cores (\texttt{Co-Pro\#1/2}), initial and tracking synchronization take 18.696\,$\mu$s (16.91\% margin) and 9.404\,$\mu$s (41.43\% margin) by pairing \texttt{VSHF}/\texttt{VMUL} correlation loops (Section~\ref{subsec:casestudy}) with \texttt{VSCH} peak detection, while channel-state estimation (\texttt{CQI/RI/SINR}) finishes in 14.285\,$\mu$s (11.02\% margin) using non-stalling \texttt{VCOR} and \texttt{VDIV} MCFUs overlapped with vector scaling. The heaviest joint MIMO channel estimation and equalization mode (\texttt{2T2R COMB2}) finishes in 22.830\,$\mu$s within its 24.084\,$\mu$s budget (5.21\% margin), with 34.34\% average and 77.11\% best-case margins across all PHY tasks. Notably, scaling 2T2R soft demodulation across a 16$\times$ constellation expansion---from 256-QAM (7.30\,$\mu$s) to 1024-QAM (8.930\,$\mu$s) and 4096-QAM (9.440\,$\mu$s)---increases latency by only 29.3\%, retaining 41.2\% margin under the 16.055\,$\mu$s budget. This sublinear growth demonstrates how 640-bit split-guard SIMD engines (\texttt{VMUL}, \texttt{VDEM}, \texttt{VCOR}) paired with 4-slot \texttt{RCFU} and address-generation parallelism absorb high-order constellation complexity.\enlargethispage{-13.5\baselineskip}
+
+\textbf{End-to-End Link Latency Compliance.}
+\autoref{tab:link_latency} reports end-to-end link latencies at peak payload (\texttt{TBSize = 60k}, encompassing baseband, RF front-end, and air-interface propagation delays). Turnaround ACK feedback completes in 35.140\,$\mu$s within the strict 35.7\,$\mu$s protocol ceiling (1.57\% margin), sustaining unthrottled HARQ/ARQ throughput. Minimum G-link and T-link user-plane delays reach 18.167\,$\mu$s (49.11\% margin) and 417.088\,$\mu$s (16.58\% margin), respectively. Notably, the identical core microarchitecture serves both branch-dense L1 control (\texttt{Co-Pro\#0}, leveraging expanded B/J immediates and 4-slot \texttt{RCFU}/\texttt{BJ} concurrency) and vector-intensive MIMO PHY (\texttt{Co-Pro\#1/2}), simplifying multi-core SoC physical integration and firmware maintenance while preserving ample headroom for future SLB releases.
 
 \begin{table}[t]
     \centering
     \caption{Link-Level End-to-End Latency under Peak Throughput}
     \label{tab:link_latency}
     \begin{threeparttable}
-    \renewcommand{\arraystretch}{1.28}
+    \renewcommand{\arraystretch}{1.16}
     \footnotesize
     \setlength{\tabcolsep}{3.5pt}
-    \begin{tabular}{|>{\raggedright\arraybackslash}m{2.35cm}|c|c|c|}
-        \hline
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.45cm}ccc@{}}
+        \toprule
         \textbf{Link Scenario} & \textbf{Measured ($\mu\mathrm{s}$)} & \textbf{Requirement ($\mu\mathrm{s}$)} & \textbf{Margin (\%)} \\
-        \hline
+        \midrule
         ACK feedback latency & 35.140 & 35.7 & 1.57 \\
         Min G-link data delay & 18.167 & 35.7 & 49.11 \\
         Min T-link data delay & 417.088 & 500 & 16.58 \\
-        \hline
+        \bottomrule
     \end{tabular}
     \begin{tablenotes}[flushleft]
         \scriptsize
-        \item Test condition: 2T2R@80MHz bandwidth, TBSize = 60k peak payload.
-        \item Latency includes baseband processing, RF front-end, and channel propagation delay.
+        \item Test condition: 2T2R@80\,MHz bandwidth, \texttt{TBSize = 60k} peak payload.
+        \item Includes digital baseband, RF front-end, and channel propagation delays.
     \end{tablenotes}
     \end{threeparttable}
 \end{table}
 
-\textbf{End-to-End Link Latency Compliance.}
-\autoref{tab:link_latency} summarizes system-level end-to-end latencies under peak payload (\texttt{TBSize = 60k}, including baseband, RF front-end, and propagation delays). End-to-end ACK feedback completes in 35.140\,$\mu$s within the strict 35.7\,$\mu$s turnaround limit (1.57\% margin), sustaining full ARQ retransmission throughput. Minimum G-link and T-link data delays reach 18.167\,$\mu$s (49.11\% margin) and 417.088\,$\mu$s (16.58\% margin), respectively, confirming substantial system-level headroom for future protocol extensions.
-
 \section{Conclusion}
 
-This paper presented a streamlined 4-issue domain-specific VLIW co-processor with custom RV32-based extensions, co-designed with an LLVM hybrid List--ILP compiler for wireless baseband processing. By uniting variable-length 3-bit bundle prefixes, 4-bit dual-destination (\textit{rd2}) instructions, 640-bit split-guard SIMD vectors, and all-slot RCFU replication with data-flow/resource upper-bound-guided scheduling, the architecture maximizes steady-state slot packing density while eliminating fixed-bundle NOP code bloat and general-purpose DSP overhead. Full sign-off implementation in TSMC 22\,nm ULL at 800\,MHz achieves a 0.98\,mm\textsuperscript{2} core area---52.9\% smaller than the 16\,nm CEVA XC12 and comparable to the 16\,nm Tensilica B20---with 45.1\% and 27.1\% lower dynamic power, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, the design deterministically meets all symbol- and link-level real-time budgets at 2T2R@80\,MHz (800\,Mbps). Future work will pursue broad post-silicon characterization and diagnostic-driven agentic compiler optimization to further accelerate ISA--toolchain co-evolution across emerging wireless standards.
+This paper presented a streamlined 4-issue domain-specific VLIW co-processor with custom RV32-based extensions, co-designed with an LLVM hybrid List--ILP compiler for wireless baseband processing. Combining variable-length 3-bit bundle prefixes, 4-bit dual-destination (\texttt{rd2}) encodings, 640-bit split-guard SIMD vectors, and all-slot RCFU replication with data-flow/slot-capacity bound-gated scheduling achieves high VLIW slot occupancy while eliminating NOP code bloat and general-purpose DSP redundancy. Sign-off implementation in TSMC 22\,nm ULL at 800\,MHz occupies 0.98\,mm\textsuperscript{2}---52.9\% smaller than the 16\,nm CEVA XC12 and within 1.4\% of the 16\,nm Tensilica B20---while cutting dynamic power by 45.1\% and 27.1\%, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, the design deterministically meets all symbol- and link-level real-time budgets at peak 2T2R@80\,MHz (800\,Mbps) operation. Future work will expand post-silicon characterization and leverage our structured VLIW scheduling diagnostics for agentic compiler--architecture co-evolution across emerging wireless standards.
 
 \clearpage
 \IEEEtriggeratref{15}
