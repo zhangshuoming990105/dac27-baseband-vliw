@@ -71,26 +71,19 @@ Specifically, timing detection, cyclic-prefix autocorrelation, and matched FIR f
 \caption{Common Operators in Wireless Physical-Layer Signal Processing}
 \label{tab:operator}
 \renewcommand{\arraystretch}{1.12}
-\setlength{\tabcolsep}{4.5pt}
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.39\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\setlength{\tabcolsep}{3.5pt}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth}>{\raggedright\arraybackslash}p{0.53\linewidth}@{}}
 \toprule
-\textbf{Operator Class} & \textbf{Typical Physical-Layer Modules} \\
+\textbf{Operator Classes (15 Total)} & \textbf{Typical Physical-Layer Modules} \\
 \midrule
-Maximum & Peak detection and timing search \\
-Sequence Correlation\slash Filtering\slash Convolution & FIR filtering and synchronization \\
-Sequence Multiplication & Frequency compensation and channel estimation \\
-Divide & Channel equalization \\
-Euler Formula & Sequence generation and trigonometric functions \\
-Data Extraction & Resource mapping and resource de-mapping \\
-Baseband Modulation & BPSK, QPSK, 16QAM, 64QAM, 256QAM, 1024QAM \\
-Butterfly Operation & FFT, IFFT, DFT, IDFT \\
-Sort & Channel parameter analysis \\
-Remainder & Sequence generation and parameter calculation \\
-Exponentiation & Channel measurement \\
-Logarithmic Operation & Channel measurement \\
-Matrix Multiplication & Channel equalization \\
-Adjoint Matrix & Channel equalization \\
-Saturation & Precision preservation across iterative stages \\
+Seq.\ Corr./Filt./Conv.; Maximum & FIR filtering, sync., peak \& timing search \\
+Seq.\ Multiplication; Butterfly & CFO/channel est.; FFT, IFFT, DFT, IDFT \\
+Matrix Mul.; Adjoint; Divide & Channel equalization \\
+Baseband Mod.; Data Extraction & BPSK--1024QAM; resource map/de-map \\
+Euler Formula; Remainder & Seq.\ gen., trig.\ \& parameter calculation \\
+Exp.; Logarithm; Sort & Channel measurement \& param.\ analysis \\
+Saturation & Iterative stage precision preservation \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -159,44 +152,22 @@ Heavier scalar and vector engines are distributed across slots whose operators r
 \centering
 \caption{Heterogeneous VLIW Slot Functional Unit Organization}
 \label{tab:fu}
-\renewcommand{\arraystretch}{1.11}
-\setlength{\tabcolsep}{3.8pt}
-\begin{tabular}{@{}>{\centering\arraybackslash}p{0.25\linewidth}>{\centering\arraybackslash}p{0.12\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\renewcommand{\arraystretch}{1.14}
+\setlength{\tabcolsep}{3.2pt}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\linewidth}>{\raggedright\arraybackslash}p{0.34\linewidth}>{\raggedright\arraybackslash}p{0.44\linewidth}@{}}
 \toprule
-\textbf{VLIW Slot} & \textbf{FU} & \textbf{Supported Operations} \\
+\textbf{Slot} & \textbf{Functional Units} & \textbf{Supported Operations} \\
 \midrule
-\multirow{6}{*}{\makecell[c]{\textbf{Slot 0}\\Program Control\\\& Simple Vector}}
-& RCFU & Replicated common FU (in all 4 slots) \\
-& BJ   & Branch and jump (from RV32I) \\
-& SYS  & System control (\texttt{wfi} only, from RV32I) \\
-& VALU & Vector arithmetic and logic operations \\
-& VMOD & Vector constellation modulation \\
-& VROT & Vector phase rotation \\
-\midrule
-\multirow{7}{*}{\makecell[c]{\textbf{Slot 1}\\Scalar \&\\Simple Vector}}
-& RCFU & Replicated common FU (in all 4 slots) \\
-& SALU & Scalar arithmetic and logic (from RV32I) \\
-& VSCH & Vector peak/index search \\
-& VEI  & Vector element extract and insert \\
-& VBCT & Vector bit count \\
-& VSHF & Vector lane shuffle \\
-& VAGU & Vector address generation \\
-\midrule
-\multirow{5}{*}{\makecell[c]{\textbf{Slot 2}\\Load/Store \&\\Predication}}
-& RCFU & Replicated common FU (in all 4 slots) \\
-& SLSU & Scalar load and store (from RV32I) \\
-& VLSU & Vector load and store \\
-& VMSK & Vector mask / predicate manipulation \\
-& VCOM & Vector element compare \\
-\midrule
-\multirow{7}{*}{\makecell[c]{\textbf{Slot 3}\\Complex \&\\Multi-Cycle Ops}}
-& RCFU & Replicated common FU (in all 4 slots) \\
-& SMUL & Scalar multiply (from RV32M) \\
-& SDIV & Scalar division (from RV32M) \\
-& VDIV & Vector division \\
-& VCOR & Vector CORDIC engine \\
-& VMUL & Vector multiply and multiply-accumulate \\
-& VDEM & Vector soft demodulation \\
+\textbf{All (0--3)} & \texttt{RCFU} ($\times 4$) & Replicated scalar ALU, logic, and shift \\
+\cmidrule{1-3}
+\textbf{Slot 0} & \texttt{BJ}, \texttt{SYS}, \texttt{VALU}, \texttt{VMOD}, \texttt{VROT} & RV32I branch/jump \& \texttt{wfi}; vec.\ ALU/logic, QAM mod., phase rotation \\
+\cmidrule{1-3}
+\textbf{Slot 1} & \texttt{SALU}, \texttt{VSCH}, \texttt{VEI}, \texttt{VBCT}, \texttt{VSHF}, \texttt{VAGU} & RV32I ALU; vec.\ peak search, extract/insert, bit count, shuffle, AGU \\
+\cmidrule{1-3}
+\textbf{Slot 2} & \texttt{SLSU}, \texttt{VLSU}, \texttt{VMSK}, \texttt{VCOM} & RV32I scalar \& 640b vector load/store; vector mask \& compare \\
+\cmidrule{1-3}
+\textbf{Slot 3} & \texttt{SMUL}, \texttt{SDIV}, \texttt{VMUL}, \texttt{VDEM}, \texttt{VCOR}, \texttt{VDIV} & RV32M mul/div; vec.\ MAC, soft demod., non-stalling CORDIC \& div. \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -235,12 +206,12 @@ Rapid standard evolution (e.g., SLB 1.0 to 2.0) requires swift compiler retarget
 \subsection{Co-Design Case Study: Sliding-Window Cross-Correlation}
 \label{subsec:casestudy}
 
-\begin{figure*}[t]
+\begin{figure}[t]
     \centering
-    \includegraphics[width=0.98\textwidth]{Figs/fig_casestudy.pdf}
-    \caption{Co-Design Case Study on 16-Lane CFO-Compensated Cross-Correlation: (a) Software-Pipelined Loop DAG, (b) 4-Slot Packing Progression, and (c) 7-Bundle Prefix Compaction}
+    \includegraphics[width=0.99\linewidth]{Figs/fig_casestudy.pdf}
+    \caption{Co-Design Case Study on 16-Lane CFO-Compensated Cross-Correlation: (a) Software-Pipelined Loop DAG, (b) 4-Slot Packing Comparison, and (c) 7-Bundle Prefix Compaction}
     \label{fig:casestudy}
-\end{figure*}
+\end{figure}
 
 To demonstrate how our ISA encodings, 4-slot microarchitecture, and bound-guided compiler interact end-to-end (\autoref{fig:casestudy}), we trace a representative PHY kernel from \autoref{tab:operator} that underpins SLB 2.0 initial and tracking synchronization (\autoref{tab:symbol_perf}): 16-lane sliding-window complex cross-correlation with carrier frequency-offset (CFO) compensation,
 \begin{equation}
@@ -278,9 +249,9 @@ $u_8$ & Loop-back branch \texttt{bne} & \texttt{BJ} & $\{0\}$ & 1 & --- (sink) \
 \textbf{Three-Step Slot Packing Progression.}
 From \autoref{tab:casestudy_dag}, every directed chain has length two ($L_{\mathrm{dep}}(G) = 2$ by~\eqref{eq:ldep}), but achievable bundle density depends jointly on \texttt{RCFU} hardware and bound-guided scheduling (\autoref{fig:casestudy}(b)):
 \begin{enumerate}
-    \item \textit{Without \texttt{RCFU} (\texttt{SALU}-only baseline):} Scalar updates $u_5, u_6, u_7$ are restricted to Slot~1 alongside $u_3$ (\texttt{VSHF}), creating a single-slot bottleneck $|V_1| = 4$. By~\eqref{eq:lres}, $L_{\mathrm{res}}(G) = 4$ bundles, leaving 8 idle NOP slots and capping packing density at $\rho = 8 / (4 \times 4) = 50.0\%$ ($\mathrm{IPC} = 2.0$, \autoref{fig:casestudy}(b) top).
+    \item \textit{Without \texttt{RCFU} (\texttt{SALU}-only baseline):} Scalar updates $u_5, u_6, u_7$ are restricted to Slot~1 alongside $u_3$ (\texttt{VSHF}), creating a single-slot bottleneck $|V_1| = 4$. By~\eqref{eq:lres}, $L_{\mathrm{res}}(G) = 4$ bundles, leaving 8 idle NOP slots and capping packing density at $\rho = 8 / (4 \times 4) = 50.0\%$ ($\mathrm{IPC} = 2.0$, \autoref{fig:casestudy}(b), left).
     \item \textit{With 4-way \texttt{RCFU}, unguided greedy placement:} Replicating \texttt{RCFU} across all four slots moves $u_5, u_6, u_7$ into $V_{\mathrm{rcfu}}$, reducing exclusive demand to $|V_0| = 2$ and $|V_1| = |V_2| = |V_3| = 1$. Equation~\eqref{eq:lres} drops to $L_{\mathrm{res}}(G) = \max(2, \lceil 8/4 \rceil) = 2$, yielding $L_{\mathrm{LB}}(G) = 2$. Yet in Bundle~1, after exclusive ready ops $u_2, u_3, u_1$ claim Slots~0--2, only Slot~3 remains open; a myopic scheduler that places height-1 $u_6$ into Slot~3 ahead of height-2 $u_7$ delays $u_7 \to u_8$ into a third bundle ($L = 3 > L_{\mathrm{LB}}$, $\rho = 66.7\%$, $\mathrm{IPC} = 2.67$).
-    \item \textit{Proposed \texttt{RCFU} + bound-guided schedule:} Prioritizing critical height ($h(u_7)=2 > h(u_6)=1$) issues all four height-2 nodes in \textbf{B1} and all four height-1 nodes in \textbf{B2} (\autoref{fig:casestudy}(b) bottom, annotated with \texttt{[slot,e]} prefixes). Because $L_{\mathrm{list}}(G) = 2 = L_{\mathrm{LB}}(G)$, the optimality gate immediately certifies the 2-bundle schedule ($\rho = 100\%$, $\mathrm{IPC} = 4.0$, a $2.0\times$ speedup over the single-\texttt{SALU} baseline).
+    \item \textit{Proposed \texttt{RCFU} + bound-guided schedule:} Prioritizing critical height ($h(u_7)=2 > h(u_6)=1$) issues all four height-2 nodes in \textbf{B1} and all four height-1 nodes in \textbf{B2} (\autoref{fig:casestudy}(b), right, annotated with \texttt{[slot,e]} prefixes). Because $L_{\mathrm{list}}(G) = 2 = L_{\mathrm{LB}}(G)$, the optimality gate immediately certifies the 2-bundle schedule ($\rho = 100\%$, $\mathrm{IPC} = 4.0$, a $2.0\times$ speedup over the single-\texttt{SALU} baseline).
 \end{enumerate}
 
 \textbf{Full-Routine Trace and 3-Bit Prefix Code Compaction.}
