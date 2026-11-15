@@ -1,4 +1,4 @@
-﻿*.aux
+*.aux
 *.bbl
 *.blg
 *.log
@@ -6,3 +6,13 @@
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# Prevent accidental commit of secrets or credentials
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.token
+*credentials*
+.netrc
