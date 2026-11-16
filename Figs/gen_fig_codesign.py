@@ -161,76 +161,80 @@ def main() -> None:
     # =========================================================================
     # LEFT ZONE: Bound-Guided LLVM Compiler Flow (Zero Line Crossings)
     # =========================================================================
-    # Top Hardware-to-Compiler Contract Channel (y = 48.4 .. 55.2)
-    y_ct = 48.4
-    h_ct = 6.8
+    # Top Hardware-to-Compiler Contract Channel (y = 49.7 .. 56.2, aligned with Right Zone top!)
+    y_ct = 49.7
+    h_ct = 6.5
     # Box C1: Admissible Slots & RCFU
-    draw_box(cv, 31.0, y_ct, 37.5, h_ct, "", fc="#FFFFFF", ec=c_dash, lw=0.68, dash=(2.2, 1.4), z=3)
-    cv.rich_text(49.75, y_ct + 4.55, [("Slot Contract ", "b"), ("S", "i"), ("(", "r"), ("u", "i"), (") & 4x RCFU", "b")], fs=6.3)
-    cv.text(49.75, y_ct + 1.85, "Exclusive vs. 4-Slot Pooled Ops", fs=5.75, tc="#374151")
+    draw_box(cv, 30.2, y_ct, 38.3, h_ct, "", fc="#FFFFFF", ec=c_dash, lw=0.68, dash=(2.2, 1.4), z=3)
+    cv.rich_text(49.35, y_ct + 4.40, [("Slot Contract ", "b"), ("S", "i"), ("(", "r"), ("u", "i"), (") & 4x RCFU", "b")], fs=6.3)
+    cv.text(49.35, y_ct + 1.75, "Exclusive vs. 4-Slot Pooled Ops", fs=5.75, tc="#374151")
 
     # Box C2: MCFU & Pipeline Latencies
     draw_box(cv, 72.2, y_ct, 40.8, h_ct, "", fc="#FFFFFF", ec=c_dash, lw=0.68, dash=(2.2, 1.4), z=3)
-    cv.rich_text(92.6, y_ct + 4.55, [("Hazard Latencies ", "b"), ("d", "sym"), ("(", "r"), ("u, v", "i"), (")", "r")], fs=6.3)
-    cv.text(92.6, y_ct + 1.85, "Non-Stalling MCFU RAW / WAR / WAW", fs=5.65, tc="#374151")
+    cv.rich_text(92.6, y_ct + 4.40, [("Hazard Latencies ", "b"), ("d", "sym"), ("(", "r"), ("u, v", "i"), (")", "r")], fs=6.3)
+    cv.text(92.6, y_ct + 1.75, "Non-Stalling MCFU RAW / WAR / WAW", fs=5.65, tc="#374151")
 
     # Dashed contract feed from Co-Processor (Right Zone) into C2 -> C1 -> DAG / Lower Bound
     cv.polyline([(x_r0, y_ct + h_ct / 2.0), (113.0, y_ct + h_ct / 2.0)], ec=c_dash, lw=0.72, dash=(2.2, 1.4), arrow_end=True, z=4)
     cv.polyline([(72.2, y_ct + h_ct / 2.0), (68.5, y_ct + h_ct / 2.0)], ec=c_dash, lw=0.72, dash=(2.2, 1.4), arrow_end=True, z=4)
 
-    # Col 1: PHY Kernels -> Custom DAG Lowering
-    x_c1, w_c1 = 2.2, 21.2
-    draw_box(cv, x_c1, 35.8, w_c1, 11.2, "PHY C &\nIntrinsics\n(15 Op Classes)", fc=c_mem, fs=6.4, line_gap=1.10)
-    cv.polyline([(x_c1 + w_c1 / 2.0, 35.8), (x_c1 + w_c1 / 2.0, 31.6)], ec="#1F2937", lw=0.75, arrow_end=True)
+    # Main compiler spine centerline
+    y_spine = 28.6
 
-    draw_box(cv, x_c1, 17.8, w_c1, 13.8, "", fc=c_front)
-    cv.text(x_c1 + w_c1 / 2.0, 28.8, "Custom DAG\nLowering", fs=6.5, bold=True, line_gap=1.06)
-    cv.rich_text(x_c1 + w_c1 / 2.0, 23.1, [("Dual-Dest ", "r"), ("rd2", "b")], fs=6.1, tc=c_isa_fg)
-    cv.text(x_c1 + w_c1 / 2.0, 20.1, "40b Split-Guard", fs=6.0)
+    # Col 1: PHY Kernels -> Custom DAG Lowering
+    x_c1, w_c1 = 1.8, 20.4
+    draw_box(cv, x_c1, 39.4, w_c1, 11.0, "PHY C &\nIntrinsics\n(15 Op Classes)", fc=c_mem, fs=6.35, line_gap=1.10)
+    y_low, h_low = y_spine - 6.9, 13.8
+    cv.polyline([(x_c1 + w_c1 / 2.0, 39.4), (x_c1 + w_c1 / 2.0, y_low + h_low)], ec="#1F2937", lw=0.75, arrow_end=True)
+
+    draw_box(cv, x_c1, y_low, w_c1, h_low, "", fc=c_front)
+    cv.text(x_c1 + w_c1 / 2.0, y_low + 11.0, "Custom DAG\nLowering", fs=6.45, bold=True, line_gap=1.06)
+    cv.rich_text(x_c1 + w_c1 / 2.0, y_low + 5.3, [("Dual-Dest ", "r"), ("rd2", "b")], fs=6.1, tc=c_isa_fg)
+    cv.text(x_c1 + w_c1 / 2.0, y_low + 2.3, "40b Split-Guard", fs=6.0)
 
     # Col 2: Dependence DAG G=(V,E)
-    x_c2, w_c2 = 27.0, 21.2
-    y_dag, h_dag = 23.0, 14.2
+    x_c2, w_c2 = 25.4, 20.6
+    y_dag, h_dag = y_spine - 7.1, 14.2
     draw_box(cv, x_c2, y_dag, w_c2, h_dag, "", fc=c_slot_bg)
-    cv.text(x_c2 + w_c2 / 2.0, y_dag + 11.5, "Dependence", fs=6.5, bold=True)
-    cv.rich_text(x_c2 + w_c2 / 2.0, y_dag + 8.5, [("DAG ", "b"), ("G", "i"), (" = (", "r"), ("V, E", "i"), (")", "r")], fs=6.4)
+    cv.text(x_c2 + w_c2 / 2.0, y_dag + 11.5, "Dependence", fs=6.45, bold=True)
+    cv.rich_text(x_c2 + w_c2 / 2.0, y_dag + 8.5, [("DAG ", "b"), ("G", "i"), (" = (", "r"), ("V, E", "i"), (")", "r")], fs=6.35)
     cv.rich_text(x_c2 + w_c2 / 2.0, y_dag + 5.2, [("\xa3", "sym"), ("16 Live Regs", "r")], fs=5.85, tc="#1F2937")
     cv.text(x_c2 + w_c2 / 2.0, y_dag + 2.4, "(Zero Spills)", fs=5.75, tc="#1F2937")
 
-    # Connect Lowering -> DAG
-    cv.polyline([(x_c1 + w_c1, 24.7), (25.2, 24.7), (25.2, y_dag + h_dag / 2.0), (x_c2, y_dag + h_dag / 2.0)], ec="#1F2937", lw=0.75, arrow_end=True)
-    # Connect Contract C1 down into DAG & Lower Bound
-    cv.polyline([(37.6, y_ct), (37.6, y_dag + h_dag)], ec=c_dash, lw=0.68, dash=(2.2, 1.4), arrow_end=True)
-    cv.polyline([(61.5, y_ct), (61.5, 44.2)], ec=c_dash, lw=0.68, dash=(2.2, 1.4), arrow_end=True)
+    # Connect Lowering -> DAG (straight along spine)
+    cv.polyline([(x_c1 + w_c1, y_spine), (x_c2, y_spine)], ec="#1F2937", lw=0.75, arrow_end=True)
 
-    # Col 3: Split into Coupled Lower Bound (upper) & Stage 1 List Scheduler (lower)
-    x_c3, w_c3 = 51.8, 26.6
-    y_lb, h_lb = 32.0, 12.2
+    # Col 3: Split into Coupled Lower Bound (upper) & Stage 1 List Scheduler (on spine)
+    x_c3, w_c3 = 50.4, 26.4
+    y_lb, h_lb = 35.7, 10.5
     draw_box(cv, x_c3, y_lb, w_c3, h_lb, "", fc=c_bound)
-    cv.text(x_c3 + w_c3 / 2.0, y_lb + 9.4, "Coupled Lower Bound", fs=6.4, bold=True)
+    cv.text(x_c3 + w_c3 / 2.0, y_lb + 8.2, "Coupled Lower Bound", fs=6.35, bold=True)
     cv.rich_text(
         x_c3 + w_c3 / 2.0,
-        y_lb + 5.7,
+        y_lb + 5.0,
         [("L", "i"), ("LB", "sub"), (" = max(", "r"), ("L", "i"), ("dep", "sub"), (", ", "r"), ("L", "i"), ("res", "sub"), (")", "r")],
-        fs=6.3,
+        fs=6.25,
     )
-    cv.text(x_c3 + w_c3 / 2.0, y_lb + 2.2, "Eq. (1)-(2) IPC Ceiling", fs=5.75, tc="#374151")
+    cv.text(x_c3 + w_c3 / 2.0, y_lb + 1.9, "Eq. (1)-(2) IPC Ceiling", fs=5.7, tc="#374151")
 
-    y_s1, h_s1 = 16.0, 12.6
+    y_s1, h_s1 = y_spine - 5.6, 11.2
     draw_box(cv, x_c3, y_s1, w_c3, h_s1, "", fc=c_slot_bg)
-    cv.text(x_c3 + w_c3 / 2.0, y_s1 + 9.9, "Stage 1: List Scheduler", fs=6.35, bold=True)
-    cv.text(x_c3 + w_c3 / 2.0, y_s1 + 6.4, "Critical Height & Scarcity", fs=5.85)
-    cv.rich_text(x_c3 + w_c3 / 2.0, y_s1 + 2.6, [("Produces ", "r"), ("L", "i"), ("list", "sub"), (" Bundles", "r")], fs=6.05)
+    cv.text(x_c3 + w_c3 / 2.0, y_s1 + 8.8, "Stage 1: List Scheduler", fs=6.35, bold=True)
+    cv.text(x_c3 + w_c3 / 2.0, y_s1 + 5.6, "Critical Height & Scarcity", fs=5.85)
+    cv.rich_text(x_c3 + w_c3 / 2.0, y_s1 + 2.2, [("Produces ", "r"), ("L", "i"), ("list", "sub"), (" Bundles", "r")], fs=6.05)
 
-    # Fork from DAG -> Upper (LB) and Lower (Stage 1)
-    x_fork = 49.9
-    cv.polyline([(x_c2 + w_c2, y_dag + h_dag / 2.0), (x_fork, y_dag + h_dag / 2.0)], ec="#1F2937", lw=0.75)
-    cv.polyline([(x_fork, y_dag + h_dag / 2.0), (x_fork, y_lb + h_lb / 2.0), (x_c3, y_lb + h_lb / 2.0)], ec="#1F2937", lw=0.75, arrow_end=True)
-    cv.polyline([(x_fork, y_dag + h_dag / 2.0), (x_fork, y_s1 + h_s1 / 2.0), (x_c3, y_s1 + h_s1 / 2.0)], ec="#1F2937", lw=0.75, arrow_end=True)
+    # Connect Contract C1 down into DAG & Lower Bound
+    cv.polyline([(35.7, y_ct), (35.7, y_dag + h_dag)], ec=c_dash, lw=0.68, dash=(2.2, 1.4), arrow_end=True)
+    cv.polyline([(61.5, y_ct), (61.5, y_lb + h_lb)], ec=c_dash, lw=0.68, dash=(2.2, 1.4), arrow_end=True)
+
+    # Fork from DAG -> Straight into Stage 1 & Upper branch into Coupled Lower Bound
+    x_fork = 48.0
+    cv.polyline([(x_c2 + w_c2, y_spine), (x_c3, y_spine)], ec="#1F2937", lw=0.75, arrow_end=True)
+    cv.polyline([(x_fork, y_spine), (x_fork, y_lb + h_lb / 2.0), (x_c3, y_lb + h_lb / 2.0)], ec="#1F2937", lw=0.75, arrow_end=True)
 
     # Col 4: Optimality Gate Diamond + Stage 2 Window-Pruned 0-1 ILP
-    cx_g, cy_g = 88.4, 30.1
-    hw_g, hh_g = 8.0, 6.8
+    cx_g, cy_g = 88.8, y_spine
+    hw_g, hh_g = 7.9, 6.4
     cv.polygon(
         [(cx_g, cy_g + hh_g), (cx_g + hw_g, cy_g), (cx_g, cy_g - hh_g), (cx_g - hw_g, cy_g)],
         fc=c_gate,
@@ -238,25 +242,25 @@ def main() -> None:
         lw=0.75,
         z=3,
     )
-    cv.text(cx_g, cy_g + 1.8, "Gate", fs=5.9, bold=True, z=5)
+    cv.text(cx_g, cy_g + 1.7, "Gate", fs=5.9, bold=True, z=5)
     cv.rich_text(cx_g, cy_g - 1.5, [("L", "i"), ("list", "sub"), (" = ", "r"), ("L", "i"), ("LB", "sub"), ("?", "r")], fs=6.15, z=5)
 
-    # Feed LB & Stage 1 into Gate
+    # Feed LB (orthogonal top entry) & Stage 1 (straight horizontal entry) into Gate
     cv.polyline([(x_c3 + w_c3, y_lb + h_lb / 2.0), (cx_g, y_lb + h_lb / 2.0), (cx_g, cy_g + hh_g)], ec="#1F2937", lw=0.75, arrow_end=True)
-    cv.polyline([(x_c3 + w_c3, y_s1 + h_s1 / 2.0), (79.4, y_s1 + h_s1 / 2.0), (79.4, cy_g), (cx_g - hw_g, cy_g)], ec="#1F2937", lw=0.75, arrow_end=True)
+    cv.polyline([(x_c3 + w_c3, cy_g), (cx_g - hw_g, cy_g)], ec="#1F2937", lw=0.75, arrow_end=True)
 
     # Stage 2: 0-1 ILP below Gate
-    x_ilp, w_ilp, y_ilp, h_ilp = 78.0, 21.0, 4.0, 11.6
+    x_ilp, w_ilp, y_ilp, h_ilp = 78.3, 21.0, 4.0, 11.2
     draw_box(cv, x_ilp, y_ilp, w_ilp, h_ilp, "", fc=c_periph)
-    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 9.0, "Stage 2: 0-1 ILP", fs=6.35, bold=True)
-    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 5.6, "ASAP/ALAP Window", fs=5.75)
-    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 2.4, "Exact Refinement", fs=5.75, italic=True)
+    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 8.7, "Stage 2: 0-1 ILP", fs=6.35, bold=True)
+    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 5.4, "ASAP/ALAP Window", fs=5.75)
+    cv.text(x_ilp + w_ilp / 2.0, y_ilp + 2.2, "Exact Refinement", fs=5.75, italic=True)
 
     cv.polyline([(cx_g, cy_g - hh_g), (cx_g, y_ilp + h_ilp)], ec="#1F2937", lw=0.75, arrow_end=True)
     cv.text(cx_g + 1.2, (cy_g - hh_g + y_ilp + h_ilp) / 2.0, "No\n(Gap > 0)", fs=5.55, ha="left", line_gap=1.02)
 
     # Col 5: 3-bit [slot, e] Prefix Packer (accented with Fig. 1's #FDF0F0 / #B80000!)
-    x_pk, w_pk, y_pk, h_pk = 101.2, 11.8, 22.4, 15.4
+    x_pk, w_pk, y_pk, h_pk = 101.2, 11.8, cy_g - 7.7, 15.4
     draw_box(cv, x_pk, y_pk, w_pk, h_pk, "", fc=c_isa_bg, ec=c_isa_fg, lw=0.78)
     cv.text(x_pk + w_pk / 2.0, y_pk + 10.6, "3-bit\nPrefix\nPacker", fs=6.15, bold=True, tc=c_isa_fg, line_gap=1.02)
     cv.text(x_pk + w_pk / 2.0, y_pk + 3.3, "[slot, e]\nNo NOPs", fs=5.5, tc="#111111", line_gap=1.04)
@@ -267,14 +271,14 @@ def main() -> None:
     cv.polyline([(x_ilp + w_ilp, y_ilp + h_ilp / 2.0), (x_pk + w_pk / 2.0, y_ilp + h_ilp / 2.0), (x_pk + w_pk / 2.0, y_pk)], ec="#1F2937", lw=0.75, arrow_end=True)
 
     # Bottom Diagnostic Feedback Note (Left Zone bottom-left)
-    draw_box(cv, 2.2, 4.0, 73.6, 8.6, "", fc="#F8FAFC", ec="#64748B", lw=0.62, dash=(2.0, 1.4))
+    draw_box(cv, 1.8, 4.0, 74.2, 8.6, "", fc="#F8FAFC", ec="#64748B", lw=0.62, dash=(2.0, 1.4))
     cv.rich_text(
-        39.0,
+        38.9,
         9.8,
         [("Structured Diagnostics: ", "b"), ("S", "i"), ("(", "r"), ("u", "i"), ("), ", "r"), ("d", "sym"), ("(", "r"), ("u, v", "i"), ("), and Gap (", "r"), ("L", "i"), ("list", "sub"), (" - ", "r"), ("L", "i"), ("LB", "sub"), (")", "r")],
         fs=5.95,
     )
-    cv.text(39.0, 6.2, "Machine-Verifiable Feedback for Rapid PHY & Agentic Compiler Retargeting", fs=5.65, italic=True, tc="#374151")
+    cv.text(38.9, 6.2, "Machine-Verifiable Feedback for Rapid PHY & Agentic Compiler Retargeting", fs=5.65, italic=True, tc="#374151")
 
     # Bridge from Prefix Packer -> ITCM in Right Zone
     block_arrow_h(cv, x_pk + w_pk + 0.35, 127.85, cy_g, bidir=False, sw=0.82, hw=1.75, hl=1.35)
