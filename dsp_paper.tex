@@ -35,11 +35,11 @@
 \maketitle
 
 \begin{abstract}
-Evolving wireless standards demand baseband processors that combine software agility with deterministic, silicon-efficient execution, yet hardwired ASICs incur costly re-spins on incompatible revisions while general-purpose DSP IPs carry heavy instruction and microarchitectural overhead. This paper presents a streamlined 4-issue domain-specific VLIW co-processor with custom RV32 extensions, developed via compiler--chip co-design for wireless baseband processing. In TSMC 22\,nm ULL at 800\,MHz, the 0.98\,mm\textsuperscript{2} core is 52.9\% smaller than the 16\,nm CEVA XC12 and within 1.4\% of the 16\,nm Tensilica B20, while cutting dynamic power (573.4\,mW) by 45.1\% and 27.1\%, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, it deterministically meets all symbol- and link-level real-time budgets at peak 2T2R@80\,MHz (800\,Mbps).
+Evolving wireless standards demand baseband processing that combines function flexibility with deterministic, silicon-efficient execution, yet hardwired ASICs incur costly re-spins on incompatible revisions while general-purpose DSP IPs carry heavy instruction and microarchitectural overhead. This paper presents a streamlined 4-issue domain-specific VLIW co-processor with custom RV32 extensions, developed via compiler--chip co-design exclusively for wireless baseband processing. In TSMC 22\,nm ULL at 800\,MHz, the 0.98\,mm\textsuperscript{2} core is 52.9\% smaller than the 16\,nm CEVA XC12 and within 1.4\% of the 16\,nm Tensilica B20, while cutting dynamic power (573.4\,mW) by 45.1\% and 27.1\%, respectively. Taped out in a three-core SparkLink SLB 2.0 baseband SoC, it deterministically meets all symbol- and link-level real-time budgets at peak 2T2R@80\,MHz (800\,Mbps).
 \end{abstract}
 
 \begin{IEEEkeywords}
-Wireless baseband, domain-specific VLIW, custom RISC-V ISA, compiler--chip co-design, SparkLink SLB.
+Wireless baseband, domain-specific VLIW, compiler--chip co-design, custom RISC-V ISA, SparkLink SLB.
 \end{IEEEkeywords}
 
 \section{Introduction}
